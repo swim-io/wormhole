@@ -8,6 +8,8 @@
 load("ext://namespace", "namespace_create", "namespace_inject")
 load("ext://secret", "secret_yaml_generic")
 
+trigger_mode(TRIGGER_MODE_MANUAL)
+
 allow_k8s_contexts("ci")
 
 # Disable telemetry by default
