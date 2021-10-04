@@ -22,6 +22,12 @@ ARG EMITTER_ADDRESS="11111111111111111111111111111115"
 ARG BRIDGE_ADDRESS
 RUN [ -n "${BRIDGE_ADDRESS}" ]
 
+# Copy Swim pool contract
+COPY modules/1pool.so /opt/solana/deps/1pool.so
+COPY modules/2pool.so /opt/solana/deps/2pool.so
+COPY modules/4pool.so /opt/solana/deps/4pool.so
+COPY modules/6pool.so /opt/solana/deps/6pool.so
+
 # Build Wormhole Solana programs
 RUN --mount=type=cache,target=target,id=build \
     --mount=type=cache,target=/usr/local/cargo/registry,id=cargo_registry \
