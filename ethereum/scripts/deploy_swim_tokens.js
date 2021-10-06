@@ -34,8 +34,8 @@ module.exports = async function(callback) {
     console.log("USDT deployed at: " + usdt.address);
 
     // mint 1000 units of each
-    await usdc.mint(accounts[0], "1000000000000000000000")
-    await usdt.mint(accounts[0], "1000000000000000000000")
+    await usdc.mint(accounts[0], "1000000000")
+    await usdt.mint(accounts[0], "1000000000")
 
     // BSC
     const busd = await TokenImplementation.new();
