@@ -44,7 +44,8 @@ ENV EMITTER_ADDRESS="11111111111111111111111111111115"
 ENV BRIDGE_ADDRESS="Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o"
 
 # Copy Swim pool contract
-COPY modules/pool.so /opt/solana/deps/pool.so
+COPY modules/4pool.so /opt/solana/deps/4pool.so
+COPY modules/6pool.so /opt/solana/deps/6pool.so
 
 # Build Wormhole Solana programs
 RUN --mount=type=cache,target=bridge/target \
