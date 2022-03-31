@@ -38,6 +38,8 @@ ENV EMITTER_ADDRESS="11111111111111111111111111111115"
 ENV BRIDGE_ADDRESS="Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o"
 
 # Copy Swim pool contract
+COPY modules/1pool.so /opt/solana/deps/1pool.so
+COPY modules/2pool.so /opt/solana/deps/2pool.so
 COPY modules/4pool.so /opt/solana/deps/4pool.so
 COPY modules/6pool.so /opt/solana/deps/6pool.so
 
