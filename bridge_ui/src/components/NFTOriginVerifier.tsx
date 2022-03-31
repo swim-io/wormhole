@@ -1,6 +1,10 @@
 import {
+  CHAIN_ID_AURORA,
+  CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
+  CHAIN_ID_FANTOM,
+  CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   hexToNativeString,
@@ -52,8 +56,8 @@ import NFTViewer from "./TokenSelectors/NFTViewer";
 
 const useStyles = makeStyles((theme) => ({
   mainCard: {
-    padding: theme.spacing(2),
-    backgroundColor: COLORS.nearBlackWithMinorTransparency,
+    padding: "32px 32px 16px",
+    backgroundColor: COLORS.whiteWithTransparency,
   },
   originHeader: {
     marginTop: theme.spacing(4),
@@ -215,9 +219,7 @@ export default function NFTOriginVerifier() {
   return (
     <div>
       <Container maxWidth="md">
-        <HeaderText white small>
-          NFT Origin Verifier
-        </HeaderText>
+        <HeaderText white>NFT Origin Verifier</HeaderText>
       </Container>
       <Container maxWidth="sm">
         <Card className={classes.mainCard}>
@@ -302,7 +304,7 @@ export default function NFTOriginVerifier() {
                     href={`https://solscan.io/token/${readableAddress}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    endIcon={<Launch />}
+                    startIcon={<Launch />}
                     className={classes.viewButton}
                     variant="outlined"
                   >
@@ -313,7 +315,7 @@ export default function NFTOriginVerifier() {
                     href={`https://bscscan.com/token/${readableAddress}?a=${originInfo.tokenId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    endIcon={<Launch />}
+                    startIcon={<Launch />}
                     className={classes.viewButton}
                     variant="outlined"
                   >
@@ -324,18 +326,51 @@ export default function NFTOriginVerifier() {
                     href={`https://opensea.io/assets/matic/${readableAddress}/${originInfo.tokenId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    endIcon={<Launch />}
+                    startIcon={<Launch />}
                     className={classes.viewButton}
                     variant="outlined"
                   >
                     View on OpenSea
                   </Button>
-                ) : (
+                ) : originInfo.chainId === CHAIN_ID_AVAX ? (
+                  <Button
+                    href={`https://snowtrace.io/token/${readableAddress}?a=${originInfo.tokenId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<Launch />}
+                    className={classes.viewButton}
+                    variant="outlined"
+                  >
+                    View on Snowtrace
+                  </Button>
+                ) : originInfo.chainId === CHAIN_ID_AURORA ? (
+                  <Button
+                    href={`https://aurorascan.dev/token/${readableAddress}?a=${originInfo.tokenId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<Launch />}
+                    className={classes.viewButton}
+                    variant="outlined"
+                  >
+                    View on Explorer
+                  </Button>
+                ) : originInfo.chainId === CHAIN_ID_FANTOM ? (
+                  <Button
+                    href={`https://ftmscan.com/token/${readableAddress}?a=${originInfo.tokenId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<Launch />}
+                    className={classes.viewButton}
+                    variant="outlined"
+                  >
+                    View on FTMScan
+                  </Button>
+                ) : originInfo.chainId === CHAIN_ID_OASIS ? null : (
                   <Button
                     href={`https://opensea.io/assets/${readableAddress}/${originInfo.tokenId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    endIcon={<Launch />}
+                    startIcon={<Launch />}
                     className={classes.viewButton}
                     variant="outlined"
                   >

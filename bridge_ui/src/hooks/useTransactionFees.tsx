@@ -4,7 +4,7 @@ import {
   CHAIN_ID_TERRA,
   isEVMChain,
 } from "@certusone/wormhole-sdk";
-import { Provider } from "@certusone/wormhole-sdk/node_modules/@ethersproject/abstract-provider";
+import { Provider } from "@ethersproject/abstract-provider";
 import { formatUnits } from "@ethersproject/units";
 import { Typography } from "@material-ui/core";
 import { LocalGasStation } from "@material-ui/icons";
@@ -20,6 +20,8 @@ import { getMultipleAccountsRPC } from "../utils/solana";
 import { NATIVE_TERRA_DECIMALS } from "../utils/terra";
 import useIsWalletReady from "./useIsWalletReady";
 import { LCDClient } from "@terra-money/terra.js";
+import { setGasPrice } from "../store/transferSlice";
+import { useDispatch } from "react-redux";
 
 export type GasEstimate = {
   currentGasPrice: string;
@@ -37,9 +39,14 @@ export type MethodType = "nft" | "createWrapped" | "transfer";
 //rather than a hardcoded value.
 const SOLANA_THRESHOLD_LAMPORTS: bigint = BigInt(300000);
 const ETHEREUM_THRESHOLD_WEI: bigint = BigInt(35000000000000000);
-const TERRA_THRESHOLD_ULUNA: bigint = BigInt(500000);
+const TERRA_THRESHOLD_ULUNA: bigint = BigInt(100000);
+const TERRA_THRESHOLD_UUSD: bigint = BigInt(10000000);
 
-const isSufficientBalance = (chainId: ChainId, balance: bigint | undefined) => {
+const isSufficientBalance = (
+  chainId: ChainId,
+  balance: bigint | undefined,
+  terraFeeDenom?: string
+) => {
   if (balance === undefined || !chainId) {
     return true;
   }
@@ -49,11 +56,31 @@ const isSufficientBalance = (chainId: ChainId, balance: bigint | undefined) => {
   if (isEVMChain(chainId)) {
     return balance > ETHEREUM_THRESHOLD_WEI;
   }
-  if (CHAIN_ID_TERRA === chainId) {
+  if (terraFeeDenom === "uluna") {
     return balance > TERRA_THRESHOLD_ULUNA;
+  }
+  if (terraFeeDenom === "uusd") {
+    return balance > TERRA_THRESHOLD_UUSD;
   }
 
   return true;
+};
+
+type TerraBalance = {
+  denom: string;
+  balance: bigint;
+};
+
+const isSufficientBalanceTerra = (balances: TerraBalance[]) => {
+  return balances.some(({ denom, balance }) => {
+    if (denom === "uluna") {
+      return balance > TERRA_THRESHOLD_ULUNA;
+    }
+    if (denom === "uusd") {
+      return balance > TERRA_THRESHOLD_UUSD;
+    }
+    return false;
+  });
 };
 
 //TODO move to more generic location
@@ -77,18 +104,25 @@ const getBalanceEvm = async (walletAddress: string, provider: Provider) => {
   return provider.getBalance(walletAddress).then((result) => result.toBigInt());
 };
 
-const getBalanceTerra = async (walletAddress: string) => {
-  const TARGET_DENOM = "uluna";
+const getBalancesTerra = async (walletAddress: string) => {
+  const TARGET_DENOMS = ["uluna", "uusd"];
 
   const lcd = new LCDClient(TERRA_HOST);
   return lcd.bank
     .balance(walletAddress)
-    .then((coins) => {
-      // coins doesn't support reduce
-      const balancePairs = coins.map(({ amount, denom }) => [denom, amount]);
-      const targetCoin = balancePairs.find((coin) => coin[0] === TARGET_DENOM);
-      if (targetCoin) {
-        return BigInt(targetCoin[1].toString());
+    .then(([coins]) => {
+      const balances = coins
+        .filter(({ denom }) => {
+          return TARGET_DENOMS.includes(denom);
+        })
+        .map(({ amount, denom }) => {
+          return {
+            denom,
+            balance: BigInt(amount.toString()),
+          };
+        });
+      if (balances) {
+        return balances;
       } else {
         return Promise.reject();
       }
@@ -115,6 +149,7 @@ export default function useTransactionFees(chainId: ChainId) {
   const { walletAddress, isReady } = useIsWalletReady(chainId);
   const { provider } = useEthereumProvider();
   const [balance, setBalance] = useState<bigint | undefined>(undefined);
+  const [terraBalances, setTerraBalances] = useState<TerraBalance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -157,12 +192,17 @@ export default function useTransactionFees(chainId: ChainId) {
       }
     } else if (chainId === CHAIN_ID_TERRA && isReady && walletAddress) {
       loadStart();
-      getBalanceTerra(walletAddress).then(
-        (result) => {
-          const adjustedresult =
-            result === undefined || result === null ? BigInt(0) : result;
+      getBalancesTerra(walletAddress).then(
+        (results) => {
+          const adjustedResults = results.map(({ denom, balance }) => {
+            return {
+              denom,
+              balance:
+                balance === undefined || balance === null ? BigInt(0) : balance,
+            };
+          });
           setIsLoading(false);
-          setBalance(adjustedresult);
+          setTerraBalances(adjustedResults);
         },
         (error) => {
           setIsLoading(false);
@@ -174,13 +214,16 @@ export default function useTransactionFees(chainId: ChainId) {
 
   const results = useMemo(() => {
     return {
-      isSufficientBalance: isSufficientBalance(chainId, balance),
+      isSufficientBalance:
+        chainId === CHAIN_ID_TERRA
+          ? isSufficientBalanceTerra(terraBalances)
+          : isSufficientBalance(chainId, balance),
       balance,
       balanceString: toBalanceString(balance, chainId),
       isLoading,
       error,
     };
-  }, [balance, chainId, isLoading, error]);
+  }, [balance, terraBalances, chainId, isLoading, error]);
 
   return results;
 }
@@ -191,19 +234,27 @@ export function useEthereumGasPrice(contract: MethodType, chainId: ChainId) {
   const [estimateResults, setEstimateResults] = useState<GasEstimate | null>(
     null
   );
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (provider && isReady && !estimateResults) {
       getGasEstimates(provider, contract).then(
         (results) => {
           setEstimateResults(results);
+          if (results?.currentGasPrice) {
+            const gasPrice =
+              (results?.currentGasPrice &&
+                parseFloat(results.currentGasPrice)) ||
+              undefined;
+            dispatch(setGasPrice(gasPrice)); //This is so the relayer hook can pull this from the state rather than remount this hook.
+          }
         },
         (error) => {
           console.log(error);
         }
       );
     }
-  }, [provider, isReady, estimateResults, contract]);
+  }, [provider, isReady, estimateResults, contract, dispatch]);
 
   const results = useMemo(() => estimateResults, [estimateResults]);
   return results;
@@ -212,14 +263,22 @@ export function useEthereumGasPrice(contract: MethodType, chainId: ChainId) {
 function EthGasEstimateSummary({
   methodType,
   chainId,
+  priceQuote,
 }: {
   methodType: MethodType;
   chainId: ChainId;
+  priceQuote?: number;
 }) {
   const estimate = useEthereumGasPrice(methodType, chainId);
   if (!estimate) {
     return null;
   }
+  const lowUsd = priceQuote
+    ? (priceQuote * parseFloat(estimate.lowEstimate)).toFixed(2)
+    : null;
+  const highUsd = priceQuote
+    ? (priceQuote * parseFloat(estimate.highEstimate)).toFixed(2)
+    : null;
 
   return (
     <Typography
@@ -231,14 +290,14 @@ function EthGasEstimateSummary({
         flexWrap: "wrap",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", alignItems: "center", marginRight: 32 }}>
         <LocalGasStation fontSize="inherit" />
         &nbsp;{estimate.currentGasPrice}
       </div>
-      <div>&nbsp;&nbsp;&nbsp;</div>
       <div>
         Est. Fees: {estimate.lowEstimate} - {estimate.highEstimate}{" "}
         {getDefaultNativeCurrencySymbol(chainId)}
+        {priceQuote ? <div>{`($${lowUsd} - $${highUsd})`}</div> : null}
       </div>
     </Typography>
   );
@@ -246,15 +305,15 @@ function EthGasEstimateSummary({
 
 const terraEstimatesByContract = {
   transfer: {
-    lowGasEstimate: BigInt(50000),
-    highGasEstimate: BigInt(90000),
+    lowGasEstimate: BigInt(400000),
+    highGasEstimate: BigInt(700000),
   },
 };
 
-const evmEstimatesByContract = {
+export const evmEstimatesByContract = {
   transfer: {
-    lowGasEstimate: BigInt(80000),
-    highGasEstimate: BigInt(130000),
+    lowGasEstimate: BigInt(250000),
+    highGasEstimate: BigInt(280000),
   },
   nft: {
     lowGasEstimate: BigInt(350000),
@@ -286,7 +345,8 @@ export async function getGasEstimates(
       highEstimate = parseFloat(
         formatUnits(highEstimateGasAmount * priceInWei.toBigInt(), "ether")
       ).toFixed(4);
-      currentGasPrice = parseFloat(formatUnits(priceInWei, "gwei")).toFixed(0);
+      const gasPriceNum = parseFloat(formatUnits(priceInWei, "gwei"));
+      currentGasPrice = gasPriceNum.toFixed(0);
     }
   }
 
@@ -302,13 +362,7 @@ export async function getGasEstimates(
   return output;
 }
 
-function TerraGasEstimateSummary({
-  methodType,
-  chainId,
-}: {
-  methodType: MethodType;
-  chainId: ChainId;
-}) {
+function TerraGasEstimateSummary({ methodType }: { methodType: MethodType }) {
   if (methodType === "transfer") {
     const lowEstimate = formatUnits(
       terraEstimatesByContract.transfer.lowGasEstimate,
@@ -329,8 +383,8 @@ function TerraGasEstimateSummary({
         }}
       >
         <div>
-          Est. Fees: {lowEstimate} - {highEstimate}{" "}
-          {getDefaultNativeCurrencySymbol(chainId)}
+          Est. Fees: {lowEstimate} - {highEstimate}
+          {" UST"}
         </div>
       </Typography>
     );
@@ -342,16 +396,22 @@ function TerraGasEstimateSummary({
 export function GasEstimateSummary({
   methodType,
   chainId,
+  priceQuote, //this is a hack, should refactor to unify the fee selector and this file
 }: {
   methodType: MethodType;
   chainId: ChainId;
+  priceQuote?: number;
 }) {
   if (isEVMChain(chainId)) {
-    return <EthGasEstimateSummary chainId={chainId} methodType={methodType} />;
-  } else if (chainId === CHAIN_ID_TERRA) {
     return (
-      <TerraGasEstimateSummary chainId={chainId} methodType={methodType} />
+      <EthGasEstimateSummary
+        chainId={chainId}
+        methodType={methodType}
+        priceQuote={priceQuote}
+      />
     );
+  } else if (chainId === CHAIN_ID_TERRA) {
+    return <TerraGasEstimateSummary methodType={methodType} />;
   } else {
     return null;
   }

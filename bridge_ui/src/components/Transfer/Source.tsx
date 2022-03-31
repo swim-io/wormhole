@@ -5,7 +5,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { getAddress } from "@ethersproject/address";
 import { Button, makeStyles, Typography } from "@material-ui/core";
-import { ArrowForward, VerifiedUser } from "@material-ui/icons";
+import { VerifiedUser } from "@material-ui/icons";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useHistory } from "react-router";
@@ -30,16 +30,22 @@ import {
 import {
   BSC_MIGRATION_ASSET_MAP,
   CHAINS,
+  CLUSTER,
   ETH_MIGRATION_ASSET_MAP,
+  getIsTransferDisabled,
   MIGRATION_ASSET_MAP,
 } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
 import ChainSelect from "../ChainSelect";
+import ChainSelectArrow from "../ChainSelectArrow";
 import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
 import NumberTextField from "../NumberTextField";
+import SolanaTPSWarning from "../SolanaTPSWarning";
 import StepDescription from "../StepDescription";
 import { TokenSelector } from "../TokenSelectors/SourceTokenSelector";
+import SourceAssetWarning from "./SourceAssetWarning";
+import ChainWarningMessage from "../ChainWarningMessage";
 
 const useStyles = makeStyles((theme) => ({
   chainSelectWrapper: {
@@ -75,6 +81,12 @@ function Source() {
     () => CHAINS.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
+  const isSourceTransferDisabled = useMemo(() => {
+    return getIsTransferDisabled(sourceChain, true);
+  }, [sourceChain]);
+  const isTargetTransferDisabled = useMemo(() => {
+    return getIsTransferDisabled(targetChain, false);
+  }, [targetChain]);
   const parsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
@@ -136,11 +148,12 @@ function Source() {
   const handleNextClick = useCallback(() => {
     dispatch(incrementStep());
   }, [dispatch]);
+
   return (
     <>
       <StepDescription>
         <div style={{ display: "flex", alignItems: "center" }}>
-          Select tokens to send through the Wormhole Bridge.
+          Select tokens to send through the Portal.
           <div style={{ flexGrow: 1 }} />
           <div>
             <Button
@@ -148,14 +161,17 @@ function Source() {
               to="/token-origin-verifier"
               size="small"
               variant="outlined"
-              endIcon={<VerifiedUser />}
+              startIcon={<VerifiedUser />}
             >
               Token Origin Verifier
             </Button>
           </div>
         </div>
       </StepDescription>
-      <div className={classes.chainSelectWrapper}>
+      <div
+        className={classes.chainSelectWrapper}
+        style={{ marginBottom: "25px" }}
+      >
         <div className={classes.chainSelectContainer}>
           <Typography variant="caption">Source</Typography>
           <ChainSelect
@@ -169,7 +185,12 @@ function Source() {
           />
         </div>
         <div className={classes.chainSelectArrow}>
-          <ArrowForward style={{ margin: "0px 8px" }} />
+          <ChainSelectArrow
+            onClick={() => {
+              dispatch(setSourceChain(targetChain));
+            }}
+            disabled={shouldLockFields}
+          />
         </div>
         <div className={classes.chainSelectContainer}>
           <Typography variant="caption">Target</Typography>
@@ -202,6 +223,13 @@ function Source() {
       ) : (
         <>
           <LowBalanceWarning chainId={sourceChain} />
+          {sourceChain === CHAIN_ID_SOLANA && CLUSTER === "mainnet" && (
+            <SolanaTPSWarning />
+          )}
+          <SourceAssetWarning
+            sourceChain={sourceChain}
+            sourceAsset={parsedTokenAccount?.mintKey}
+          />
           {hasParsedTokenAccount ? (
             <NumberTextField
               variant="outlined"
@@ -218,8 +246,14 @@ function Source() {
               }
             />
           ) : null}
+          <ChainWarningMessage chainId={sourceChain} />
+          <ChainWarningMessage chainId={targetChain} />
           <ButtonWithLoader
-            disabled={!isSourceComplete}
+            disabled={
+              !isSourceComplete ||
+              isSourceTransferDisabled ||
+              isTargetTransferDisabled
+            }
             onClick={handleNextClick}
             showLoader={false}
             error={statusMessage || error}

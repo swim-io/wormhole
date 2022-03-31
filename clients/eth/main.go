@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+
 	"github.com/certusone/wormhole/node/pkg/ethereum/abi"
 	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,9 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
-	"math"
-	"os"
-	"strconv"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -51,23 +51,15 @@ func init() {
 }
 
 func postMessage(cmd *cobra.Command, args []string) {
-	nonce, err := strconv.Atoi(args[0])
+	nonce, err := strconv.ParseUint(args[0], 10, 32)
 	if err != nil {
 		cmd.PrintErrln("Could not parse nonce", err)
 		os.Exit(1)
 	}
-	if nonce > math.MaxUint32 {
-		cmd.PrintErrln("Nonce must not exceed MaxUint32", err)
-		os.Exit(1)
-	}
 
-	consistencyLevel, err := strconv.Atoi(args[1])
+	consistencyLevel, err := strconv.ParseUint(args[1], 10, 8)
 	if err != nil {
 		cmd.PrintErrln("Could not parse confirmation number", err)
-		os.Exit(1)
-	}
-	if consistencyLevel > math.MaxUint8 {
-		cmd.PrintErrln("Confirmation number must not exceed 255", err)
 		os.Exit(1)
 	}
 

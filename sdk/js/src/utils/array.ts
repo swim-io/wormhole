@@ -1,22 +1,37 @@
-import {
-  ChainId,
-  CHAIN_ID_BSC,
-  CHAIN_ID_ETH,
-  CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
-  CHAIN_ID_POLYGON,
-  CHAIN_ID_ETHEREUM_ROPSTEN,
-} from "./consts";
-import { humanAddress, canonicalAddress, isNativeDenom } from "../terra";
+import { arrayify, zeroPad } from "@ethersproject/bytes";
 import { PublicKey } from "@solana/web3.js";
 import { hexValue, hexZeroPad, stripZeros } from "ethers/lib/utils";
-import { arrayify, zeroPad } from "@ethersproject/bytes";
+import { canonicalAddress, humanAddress, isNativeDenom } from "../terra";
+import {
+  ChainId,
+  CHAIN_ID_ACALA,
+  CHAIN_ID_AURORA,
+  CHAIN_ID_AVAX,
+  CHAIN_ID_BSC,
+  CHAIN_ID_ETH,
+  CHAIN_ID_ETHEREUM_ROPSTEN,
+  CHAIN_ID_FANTOM,
+  CHAIN_ID_KARURA,
+  CHAIN_ID_OASIS,
+  CHAIN_ID_POLYGON,
+  CHAIN_ID_SOLANA,
+  CHAIN_ID_TERRA,
+} from "./consts";
 
-export const isEVMChain = (chainId: ChainId) =>
-  chainId === CHAIN_ID_ETH ||
-  chainId === CHAIN_ID_BSC ||
-  chainId === CHAIN_ID_ETHEREUM_ROPSTEN ||
-  chainId === CHAIN_ID_POLYGON;
+export const isEVMChain = (chainId: ChainId) => {
+  return (
+    chainId === CHAIN_ID_ETH ||
+    chainId === CHAIN_ID_BSC ||
+    chainId === CHAIN_ID_ETHEREUM_ROPSTEN ||
+    chainId === CHAIN_ID_AVAX ||
+    chainId === CHAIN_ID_POLYGON ||
+    chainId === CHAIN_ID_OASIS ||
+    chainId === CHAIN_ID_AURORA ||
+    chainId === CHAIN_ID_FANTOM ||
+    chainId === CHAIN_ID_KARURA ||
+    chainId === CHAIN_ID_ACALA
+  );
+};
 
 export const isHexNativeTerra = (h: string) => h.startsWith("01");
 export const nativeTerraHexToDenom = (h: string) =>
@@ -72,3 +87,10 @@ export const nativeToHexString = (
 
 export const uint8ArrayToNative = (a: Uint8Array, chainId: ChainId) =>
   hexToNativeString(uint8ArrayToHex(a), chainId);
+
+export function chunks<T>(array: T[], size: number): T[][] {
+  return Array.apply<number, T[], T[][]>(
+    0,
+    new Array(Math.ceil(array.length / size))
+  ).map((_, index) => array.slice(index * size, (index + 1) * size));
+}

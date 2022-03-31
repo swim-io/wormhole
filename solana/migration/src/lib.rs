@@ -1,5 +1,6 @@
 #![allow(incomplete_features)]
-#![feature(const_generics)]
+
+#![feature(adt_const_params)]
 
 use api::{
     add_liquidity::*,
@@ -39,9 +40,9 @@ impl From<MigrationError> for SolitaireError {
 }
 
 solitaire! {
-    AddLiquidity(AddLiquidityData) => add_liquidity,
-    RemoveLiquidity(RemoveLiquidityData) => remove_liquidity,
-    ClaimShares(ClaimSharesData) => claim_shares,
-    CreatePool(CreatePoolData) => create_pool,
-    MigrateTokens(MigrateTokensData) => migrate_tokens,
+    AddLiquidity => add_liquidity,
+    RemoveLiquidity => remove_liquidity,
+    ClaimShares => claim_shares,
+    CreatePool => create_pool,
+    MigrateTokens => migrate_tokens,
 }

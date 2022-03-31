@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/certusone/wormhole/node/pkg/common"
+	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
 	"github.com/certusone/wormhole/node/pkg/vaa"
 	"github.com/davecgh/go-spew/spew"
@@ -24,6 +26,7 @@ import (
 
 var (
 	clientSocketPath *string
+	shouldBackfill   *bool
 )
 
 func init() {
@@ -35,16 +38,21 @@ func init() {
 		panic(err)
 	}
 
+	shouldBackfill = AdminClientFindMissingMessagesCmd.Flags().Bool(
+		"backfill", false, "backfill missing VAAs from public RPC")
+
 	AdminClientInjectGuardianSetUpdateCmd.Flags().AddFlagSet(pf)
 	AdminClientFindMissingMessagesCmd.Flags().AddFlagSet(pf)
 	AdminClientListNodes.Flags().AddFlagSet(pf)
 	DumpVAAByMessageID.Flags().AddFlagSet(pf)
+	SendObservationRequest.Flags().AddFlagSet(pf)
 
 	AdminCmd.AddCommand(AdminClientInjectGuardianSetUpdateCmd)
 	AdminCmd.AddCommand(AdminClientFindMissingMessagesCmd)
 	AdminCmd.AddCommand(AdminClientGovernanceVAAVerifyCmd)
 	AdminCmd.AddCommand(AdminClientListNodes)
 	AdminCmd.AddCommand(DumpVAAByMessageID)
+	AdminCmd.AddCommand(SendObservationRequest)
 }
 
 var AdminCmd = &cobra.Command{
@@ -71,6 +79,13 @@ var DumpVAAByMessageID = &cobra.Command{
 	Short: "Retrieve a VAA by message ID (chain/emitter/seq) and decode and dump the VAA",
 	Run:   runDumpVAAByMessageID,
 	Args:  cobra.ExactArgs(1),
+}
+
+var SendObservationRequest = &cobra.Command{
+	Use:   "send-observation-request [CHAIN_ID] [TX_HASH_HEX]",
+	Short: "Broadcast an observation request for the given chain ID and chain-specific tx_hash",
+	Run:   runSendObservationRequest,
+	Args:  cobra.ExactArgs(2),
 }
 
 func getAdminClient(ctx context.Context, addr string) (*grpc.ClientConn, error, nodev1.NodePrivilegedServiceClient) {
@@ -134,7 +149,7 @@ func runFindMissingMessages(cmd *cobra.Command, args []string) {
 	}
 	emitterAddress := args[1]
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	conn, err, c := getAdminClient(ctx, *clientSocketPath)
@@ -146,6 +161,8 @@ func runFindMissingMessages(cmd *cobra.Command, args []string) {
 	msg := nodev1.FindMissingMessagesRequest{
 		EmitterChain:   uint32(chainID),
 		EmitterAddress: emitterAddress,
+		RpcBackfill:    *shouldBackfill,
+		BackfillNodes:  common.PublicRPCEndpoints,
 	}
 	resp, err := c.FindMissingMessages(ctx, &msg)
 	if err != nil {
@@ -206,4 +223,35 @@ func runDumpVAAByMessageID(cmd *cobra.Command, args []string) {
 
 	log.Printf("VAA with digest %s: %+v\n", v.HexDigest(), spew.Sdump(v))
 	fmt.Printf("Bytes:\n%s\n", hex.EncodeToString(resp.VaaBytes))
+}
+
+func runSendObservationRequest(cmd *cobra.Command, args []string) {
+	chainID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("invalid chain ID: %v", err)
+	}
+
+	txHash, err := hex.DecodeString(args[1])
+	if err != nil {
+		log.Fatalf("invalid transaction hash: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, err, c := getAdminClient(ctx, *clientSocketPath)
+	defer conn.Close()
+	if err != nil {
+		log.Fatalf("failed to get admin client: %v", err)
+	}
+
+	_, err = c.SendObservationRequest(ctx, &nodev1.SendObservationRequestRequest{
+		ObservationRequest: &gossipv1.ObservationRequest{
+			ChainId: uint32(chainID),
+			TxHash:  txHash,
+		},
+	})
+	if err != nil {
+		log.Fatalf("failed to send observation request: %v", err)
+	}
 }

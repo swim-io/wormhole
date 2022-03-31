@@ -1,4 +1,5 @@
-#![feature(const_generics)]
+
+#![feature(adt_const_params)]
 #![allow(non_upper_case_globals)]
 #![allow(incomplete_features)]
 
@@ -84,12 +85,12 @@ pub use vaa::{
 };
 
 solitaire! {
-    Initialize(InitializeData)                  => initialize,
-    PostMessage(PostMessageData)                => post_message,
-    PostVAA(PostVAAData)                        => post_vaa,
-    SetFees(SetFeesData)                        => set_fees,
-    TransferFees(TransferFeesData)              => transfer_fees,
-    UpgradeContract(UpgradeContractData)        => upgrade_contract,
-    UpgradeGuardianSet(UpgradeGuardianSetData)  => upgrade_guardian_set,
-    VerifySignatures(VerifySignaturesData)      => verify_signatures,
+    Initialize         => initialize,
+    PostMessage        => post_message,
+    PostVAA            => post_vaa,
+    SetFees            => set_fees,
+    TransferFees       => transfer_fees,
+    UpgradeContract    => upgrade_contract,
+    UpgradeGuardianSet => upgrade_guardian_set,
+    VerifySignatures   => verify_signatures,
 }

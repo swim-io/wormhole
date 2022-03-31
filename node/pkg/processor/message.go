@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/hex"
+
 	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/mr-tron/base58"
 
@@ -79,6 +80,18 @@ func (p *Processor) handleMessage(ctx context.Context, k *common.MessagePublicat
 		ConsistencyLevel: k.ConsistencyLevel,
 	}
 
+	// A governance message should never be emitted on-chain
+	if v.EmitterAddress == vaa.GovernanceEmitter && v.EmitterChain == vaa.GovernanceChain {
+		supervisor.Logger(ctx).Error(
+			"EMERGENCY: PLEASE REPORT THIS IMMEDIATELY! A Solana message was emitted from the governance emitter. This should never be possible.",
+			zap.Stringer("emitter_chain", k.EmitterChain),
+			zap.Stringer("emitter_address", k.EmitterAddress),
+			zap.Uint32("nonce", k.Nonce),
+			zap.Stringer("txhash", k.TxHash),
+			zap.Time("timestamp", k.Timestamp))
+		return
+	}
+
 	// Ignore incoming observations when our database already has a quorum VAA for it.
 	// This can occur when we're receiving late observations due to node catchup, and
 	// processing those won't do us any good.
@@ -118,10 +131,7 @@ func (p *Processor) handleMessage(ctx context.Context, k *common.MessagePublicat
 	}
 
 	// Generate digest of the unsigned VAA.
-	digest, err := v.SigningMsg()
-	if err != nil {
-		panic(err)
-	}
+	digest := v.SigningMsg()
 
 	// Sign the digest using our node's guardian key.
 	s, err := crypto.Sign(digest.Bytes(), p.gk)

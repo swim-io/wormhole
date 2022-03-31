@@ -1,4 +1,5 @@
-#![feature(const_generics)]
+
+#![feature(adt_const_params)]
 #![deny(unused_must_use)]
 
 // #![cfg(all(target_arch = "bpf", not(feature = "no-entrypoint")))]
@@ -64,6 +65,7 @@ pub enum TokenBridgeError {
     UninitializedMint,
     WrongAccountOwner,
     InvalidFee,
+    InvalidRecipient,
 }
 
 impl From<TokenBridgeError> for SolitaireError {
@@ -73,13 +75,13 @@ impl From<TokenBridgeError> for SolitaireError {
 }
 
 solitaire! {
-    Initialize(InitializeData) => initialize,
-    AttestToken(AttestTokenData) => attest_token,
-    CompleteNative(CompleteNativeData) => complete_native,
-    CompleteWrapped(CompleteWrappedData) => complete_wrapped,
-    TransferWrapped(TransferWrappedData) => transfer_wrapped,
-    TransferNative(TransferNativeData) => transfer_native,
-    RegisterChain(RegisterChainData) => register_chain,
-    CreateWrapped(CreateWrappedData) => create_wrapped,
-    UpgradeContract(UpgradeContractData) => upgrade_contract,
+    Initialize      => initialize,
+    AttestToken     => attest_token,
+    CompleteNative  => complete_native,
+    CompleteWrapped => complete_wrapped,
+    TransferWrapped => transfer_wrapped,
+    TransferNative  => transfer_native,
+    RegisterChain   => register_chain,
+    CreateWrapped   => create_wrapped,
+    UpgradeContract => upgrade_contract,
 }

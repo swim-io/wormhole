@@ -1,18 +1,18 @@
 import yargs from "yargs";
 
-const {hideBin} = require('yargs/helpers')
+const { hideBin } = require('yargs/helpers')
 
-import * as bridge from "bridge";
 import * as elliptic from "elliptic";
 import * as ethers from "ethers";
-import * as nft_bridge from "nft-bridge";
 import * as web3s from '@solana/web3.js';
 
-import {BridgeImplementation__factory} from "./src/ethers-contracts";
-import {PublicKey, TransactionInstruction, AccountMeta, Keypair, Connection} from "@solana/web3.js";
-import {solidityKeccak256} from "ethers/lib/utils";
+import { PublicKey, TransactionInstruction, AccountMeta, Keypair, Connection } from "@solana/web3.js";
+import { base58, solidityKeccak256 } from "ethers/lib/utils";
 
-const signAndEncodeVM = function (
+import { setDefaultWasm, importCoreWasm, importNftWasm, ixFromRust, BridgeImplementation__factory } from '@certusone/wormhole-sdk'
+setDefaultWasm("node")
+
+const signAndEncodeVM = function(
     timestamp,
     nonce,
     emitterChainId,
@@ -40,7 +40,7 @@ const signAndEncodeVM = function (
     for (let i in signers) {
         const ec = new elliptic.ec("secp256k1");
         const key = ec.keyFromPrivate(signers[i]);
-        const signature = key.sign(Buffer.from(hash.substr(2), "hex"), {canonical: true});
+        const signature = key.sign(Buffer.from(hash.substr(2), "hex"), { canonical: true });
 
         const packSig = [
             ethers.utils.defaultAbiCoder.encode(["uint8"], [i]).substring(2 + (64 - 2)),
@@ -91,7 +91,7 @@ yargs(hideBin(process.argv))
             "01",
             "0000",
             ethers.utils.defaultAbiCoder.encode(["uint16"], [argv.chain_id]).substring(2 + (64 - 4)),
-            ethers.utils.defaultAbiCoder.encode(["bytes32"], [argv.contract_address]).substring(2),
+            ethers.utils.defaultAbiCoder.encode(["bytes32"], [fmtAddress(argv.contract_address)]).substring(2),
         ].join('')
 
         const vm = signAndEncodeVM(
@@ -99,10 +99,52 @@ yargs(hideBin(process.argv))
             1,
             1,
             "0x0000000000000000000000000000000000000000000000000000000000000004",
-            0,
+            Math.floor(Math.random() * 100000000),
             data,
             [
                 "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"
+            ],
+            0,
+            0
+        );
+
+        console.log(vm)
+    })
+    .command('generate_upgrade_chain_vaa [chain_id] [contract_address]', 'create a VAA to upgrade a chain (debug-only)', (yargs) => {
+        return yargs
+            .positional('chain_id', {
+                describe: 'chain id to upgrade',
+                type: "number",
+                required: true
+            })
+            .positional('contract_address', {
+                describe: 'contract to upgrade to',
+                type: "string",
+                required: true
+            })
+            .option('guardian_secret', {
+                describe: 'Guardian\'s secret key',
+                type: "string",
+                default: "cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"
+            })
+    }, async (argv: any) => {
+        let data = [
+            "0x",
+            "00000000000000000000000000000000000000000000004e4654427269646765", // NFT Bridge header
+            "02",
+            ethers.utils.defaultAbiCoder.encode(["uint16"], [argv.chain_id]).substring(2 + (64 - 4)),
+            ethers.utils.defaultAbiCoder.encode(["bytes32"], [fmtAddress(argv.contract_address)]).substring(2),
+        ].join('')
+
+        const vm = signAndEncodeVM(
+            1,
+            1,
+            1,
+            "0x0000000000000000000000000000000000000000000000000000000000000004",
+            Math.floor(Math.random() * 100000000),
+            data,
+            [
+               argv.guardian_secret
             ],
             0,
             0
@@ -135,18 +177,31 @@ yargs(hideBin(process.argv))
                 description: 'NFT Bridge address',
                 default: "NFTWqJR8YnRVqPDvTJrYuLrQDitTG5AScqbeghi4zSA"
             })
+            .option('key', {
+                alias: 'k',
+                type: 'string',
+                description: 'Private key of the wallet',
+                required: false
+            })
     }, async (argv: any) => {
+        const bridge = await importCoreWasm()
+        const nft_bridge = await importNftWasm()
+
         let connection = setupConnection(argv);
         let bridge_id = new PublicKey(argv.bridge);
         let nft_bridge_id = new PublicKey(argv.nft_bridge);
 
-        // Generate a new random public key
-        let from = web3s.Keypair.generate();
-        let airdropSignature = await connection.requestAirdrop(
-            from.publicKey,
-            web3s.LAMPORTS_PER_SOL,
-        );
-        await connection.confirmTransaction(airdropSignature);
+        var from: web3s.Keypair;
+        if (argv.key) {
+            from = web3s.Keypair.fromSecretKey(base58.decode(argv.key));
+        } else {
+            from = web3s.Keypair.generate();
+            let airdropSignature = await connection.requestAirdrop(
+                from.publicKey,
+                web3s.LAMPORTS_PER_SOL,
+            );
+            await connection.confirmTransaction(airdropSignature);
+        }
 
         let vaa = Buffer.from(argv.vaa, "hex");
         await post_vaa(connection, bridge_id, from, vaa);
@@ -178,7 +233,7 @@ yargs(hideBin(process.argv))
         );
         console.log('SIGNATURE', signature);
     })
-    .command('eth execute_governance_vaa [vaa]', 'execute a governance VAA on Solana', (yargs) => {
+    .command('eth execute_governance_vaa [vaa]', 'execute a governance VAA on evm', (yargs) => {
         return yargs
             .positional('vaa', {
                 describe: 'vaa to post',
@@ -204,6 +259,8 @@ yargs(hideBin(process.argv))
                 default: "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
             })
     }, async (argv: any) => {
+        const bridge = await importCoreWasm()
+
         let provider = new ethers.providers.JsonRpcProvider(argv.rpc)
         let signer = new ethers.Wallet(argv.key, provider)
         let t = new BridgeImplementation__factory(signer);
@@ -228,6 +285,8 @@ yargs(hideBin(process.argv))
     .argv;
 
 async function post_vaa(connection: Connection, bridge_id: PublicKey, payer: Keypair, vaa: Buffer) {
+    const bridge = await importCoreWasm()
+
     let bridge_state = await get_bridge_state(connection, bridge_id);
     let guardian_addr = new PublicKey(bridge.guardian_set_address(bridge_id.toString(), bridge_state.guardian_set_index));
     let acc = await connection.getAccountInfo(guardian_addr);
@@ -272,6 +331,8 @@ async function post_vaa(connection: Connection, bridge_id: PublicKey, payer: Key
 }
 
 async function get_bridge_state(connection: Connection, bridge_id: PublicKey): Promise<BridgeState> {
+    const bridge = await importCoreWasm()
+
     let bridge_state = new PublicKey(bridge.state_address(bridge_id.toString()));
     let acc = await connection.getAccountInfo(bridge_state);
     if (acc?.data === undefined) {
@@ -287,21 +348,9 @@ function setupConnection(argv: yargs.Arguments): web3s.Connection {
     );
 }
 
-function ixFromRust(data: any): TransactionInstruction {
-    let keys: Array<AccountMeta> = data.accounts.map(accountMetaFromRust)
-    return new TransactionInstruction({
-        programId: new PublicKey(data.program_id),
-        data: Buffer.from(data.data),
-        keys: keys,
-    })
-}
-
-function accountMetaFromRust(meta: any): AccountMeta {
-    return {
-        pubkey: new PublicKey(meta.pubkey),
-        isSigner: meta.is_signer,
-        isWritable: meta.is_writable,
-    }
+function fmtAddress(addr: string) : string {
+    let address = (addr.search("0x") == 0) ? addr.substring(2) : addr;
+    return "0x" + zeroPadBytes(address, 32);
 }
 
 interface BridgeState {

@@ -1,8 +1,12 @@
 import {
   ChainId,
+  CHAIN_ID_AURORA,
+  CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
   CHAIN_ID_ETHEREUM_ROPSTEN,
+  CHAIN_ID_FANTOM,
+  CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
@@ -10,7 +14,6 @@ import {
   WSOL_ADDRESS,
   WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
-import { ethers } from "@certusone/wormhole-sdk/node_modules/ethers";
 import { Dispatch } from "@reduxjs/toolkit";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
@@ -20,6 +23,7 @@ import {
   PublicKey,
 } from "@solana/web3.js";
 import axios from "axios";
+import { ethers } from "ethers";
 import { formatUnits } from "ethers/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -28,6 +32,12 @@ import {
   useEthereumProvider,
 } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
+import avaxIcon from "../icons/avax.svg";
+import bnbIcon from "../icons/bnb.svg";
+import ethIcon from "../icons/eth.svg";
+import fantomIcon from "../icons/fantom.svg";
+import oasisIcon from "../icons/oasis-network-rose-logo.svg";
+import polygonIcon from "../icons/polygon.svg";
 import {
   errorSourceParsedTokenAccounts as errorSourceParsedTokenAccountsNFT,
   fetchSourceParsedTokenAccounts as fetchSourceParsedTokenAccountsNFT,
@@ -57,24 +67,30 @@ import {
 } from "../store/transferSlice";
 import {
   COVALENT_GET_TOKENS_URL,
+  logoOverrides,
   ROPSTEN_WETH_ADDRESS,
   ROPSTEN_WETH_DECIMALS,
   SOLANA_HOST,
+  WAVAX_ADDRESS,
+  WAVAX_DECIMALS,
   WBNB_ADDRESS,
   WBNB_DECIMALS,
   WETH_ADDRESS,
+  WETH_AURORA_ADDRESS,
+  WETH_AURORA_DECIMALS,
   WETH_DECIMALS,
+  WFTM_ADDRESS,
+  WFTM_DECIMALS,
   WMATIC_ADDRESS,
   WMATIC_DECIMALS,
+  WROSE_ADDRESS,
+  WROSE_DECIMALS,
 } from "../utils/consts";
 import {
   ExtractedMintInfo,
   extractMintInfo,
   getMultipleAccountsRPC,
 } from "../utils/solana";
-import bnbIcon from "../icons/bnb.svg";
-import ethIcon from "../icons/eth.svg";
-import polygonIcon from "../icons/polygon.svg";
 
 export function createParsedTokenAccount(
   publicKey: string,
@@ -167,7 +183,7 @@ const createParsedTokenAccountFromCovalent = (
     uiAmountString: formatUnits(covalent.balance, covalent.contract_decimals),
     symbol: covalent.contract_ticker_symbol,
     name: covalent.contract_name,
-    logo: covalent.logo_url,
+    logo: logoOverrides.get(covalent.contract_address) || covalent.logo_url,
   };
 };
 
@@ -284,6 +300,98 @@ const createNativePolygonParsedTokenAccount = (
           "MATIC", //A white lie for display purposes
           "Matic", //A white lie for display purposes
           polygonIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeAvaxParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          WAVAX_ADDRESS, //Mint key, On the other side this will be wavax, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          WAVAX_DECIMALS,
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "AVAX", //A white lie for display purposes
+          "Avalanche", //A white lie for display purposes
+          avaxIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeOasisParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          WROSE_ADDRESS, //Mint key, On the other side this will be wavax, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          WROSE_DECIMALS,
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "ROSE", //A white lie for display purposes
+          "Rose", //A white lie for display purposes
+          oasisIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeAuroraParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          WETH_AURORA_ADDRESS, //Mint key, On the other side this will be wavax, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          WETH_AURORA_DECIMALS,
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "ETH", //A white lie for display purposes
+          "Aurora ETH", //A white lie for display purposes
+          fantomIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeFantomParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          WFTM_ADDRESS, //Mint key, On the other side this will be wavax, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          WFTM_DECIMALS,
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "FTM", //A white lie for display purposes
+          "Fantom", //A white lie for display purposes
+          fantomIcon,
           true //isNativeAsset
         );
       });
@@ -726,6 +834,140 @@ function useGetAvailableTokens(nft: boolean = false) {
             setEthNativeAccount(undefined);
             setEthNativeAccountLoading(false);
             setEthNativeAccountError("Unable to retrieve your MATIC balance.");
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
+  //TODO refactor all these into an isEVM effect
+  //avax native asset load
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_AVAX &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeAvaxParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("Unable to retrieve your AVAX balance.");
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_OASIS &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeOasisParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("Unable to retrieve your Oasis balance.");
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_AURORA &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeAuroraParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("Unable to retrieve your Fantom balance.");
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_FANTOM &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeFantomParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("Unable to retrieve your Fantom balance.");
           }
         }
       );

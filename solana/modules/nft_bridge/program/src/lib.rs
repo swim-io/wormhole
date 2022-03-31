@@ -1,4 +1,5 @@
-#![feature(const_generics)]
+
+#![feature(adt_const_params)]
 #![allow(incomplete_features)]
 #![deny(unused_must_use)]
 // #![cfg(all(target_arch = "bpf", not(feature = "no-entrypoint")))]
@@ -61,6 +62,7 @@ pub enum TokenBridgeError {
     WrongAccountOwner,
     TokenNotNFT,
     InvalidAssociatedAccount,
+    InvalidRecipient,
 }
 
 impl From<TokenBridgeError> for SolitaireError {
@@ -70,12 +72,12 @@ impl From<TokenBridgeError> for SolitaireError {
 }
 
 solitaire! {
-    Initialize(InitializeData) => initialize,
-    CompleteNative(CompleteNativeData) => complete_native,
-    CompleteWrapped(CompleteWrappedData) => complete_wrapped,
-    CompleteWrappedMeta(CompleteWrappedMetaData) => complete_wrapped_meta,
-    TransferWrapped(TransferWrappedData) => transfer_wrapped,
-    TransferNative(TransferNativeData) => transfer_native,
-    RegisterChain(RegisterChainData) => register_chain,
-    UpgradeContract(UpgradeContractData) => upgrade_contract,
+    Initialize          => initialize,
+    CompleteNative      => complete_native,
+    CompleteWrapped     => complete_wrapped,
+    CompleteWrappedMeta => complete_wrapped_meta,
+    TransferWrapped     => transfer_wrapped,
+    TransferNative      => transfer_native,
+    RegisterChain       => register_chain,
+    UpgradeContract     => upgrade_contract,
 }

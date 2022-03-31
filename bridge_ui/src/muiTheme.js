@@ -1,4 +1,6 @@
 import { createTheme, responsiveFontSizes } from "@material-ui/core";
+import bg from "../src/images/bg.svg";
+import SuisseBPIntlBold from "./fonts/SuisseBPIntlBold.woff2";
 
 export const COLORS = {
   blue: "#1975e6",
@@ -8,10 +10,20 @@ export const COLORS = {
   greenWithTransparency: "rgba(10, 194, 175, 0.8)",
   lightGreen: "rgba(51, 242, 223, 1)",
   lightBlue: "#83b9fc",
-  nearBlack: "#000008",
+  nearBlack: "#17153f",
   nearBlackWithMinorTransparency: "rgba(0,0,0,.25)",
   red: "#aa0818",
   darkRed: "#810612",
+  white: "#FFFFFF",
+  whiteWithTransparency: "rgba(255,255,255,.07)",
+};
+
+const suisse = {
+  fontFamily: "Suisse BP Intl",
+  fontStyle: "normal",
+  fontDisplay: "swap",
+  fontWeight: 400,
+  src: `url(${SuisseBPIntlBold}) format('woff2')`,
 };
 
 export const theme = responsiveFontSizes(
@@ -22,9 +34,9 @@ export const theme = responsiveFontSizes(
         default: COLORS.nearBlack,
         paper: COLORS.nearBlack,
       },
-      divider: COLORS.gray,
+      divider: COLORS.white,
       text: {
-        primary: "rgba(255,255,255,0.98)",
+        primary: COLORS.white,
       },
       primary: {
         main: COLORS.blueWithTransparency, // #0074FF
@@ -38,21 +50,36 @@ export const theme = responsiveFontSizes(
         main: COLORS.red,
       },
     },
+
     typography: {
-      fontFamily: "'Sora', sans-serif",
+      fontFamily: "'Poppins', sans-serif",
+      fontSize: 13,
       h1: {
-        fontWeight: "200",
+        fontFamily: "Suisse BP Intl, sans-serif",
+        lineHeight: 0.9,
+        letterSpacing: -2,
+        fontWeight: "bold",
       },
       h2: {
         fontWeight: "200",
       },
       h4: {
-        fontWeight: "500",
+        fontWeight: "600",
+        fontFamily: "Suisse BP Intl, sans-serif",
+        letterSpacing: -1.02,
       },
     },
     overrides: {
       MuiCssBaseline: {
         "@global": {
+          "@font-face": [suisse],
+          body: {
+            overscrollBehaviorY: "none",
+            backgroundImage: `url(${bg})`,
+            backgroundPosition: "top center",
+            backgroundRepeat: "repeat-y",
+            backgroundSize: "120%",
+          },
           "*": {
             scrollbarWidth: "thin",
             scrollbarColor: `${COLORS.gray} ${COLORS.nearBlackWithMinorTransparency}`,
@@ -74,19 +101,19 @@ export const theme = responsiveFontSizes(
       },
       MuiAccordion: {
         root: {
-          backgroundColor: COLORS.nearBlackWithMinorTransparency,
+          backgroundColor: COLORS.whiteWithTransparency,
           "&:before": {
             display: "none",
           },
         },
         rounded: {
           "&:first-child": {
-            borderTopLeftRadius: "16px",
-            borderTopRightRadius: "16px",
+            borderTopLeftRadius: "28px",
+            borderTopRightRadius: "28px",
           },
           "&:last-child": {
-            borderBottomLeftRadius: "16px",
-            borderBottomRightRadius: "16px",
+            borderBottomLeftRadius: "28px",
+            borderBottomRightRadius: "28px",
           },
         },
       },
@@ -98,8 +125,12 @@ export const theme = responsiveFontSizes(
       },
       MuiButton: {
         root: {
-          borderRadius: "5px",
-          textTransform: "none",
+          borderRadius: "22px",
+          letterSpacing: ".1em",
+        },
+        outlinedSizeSmall: {
+          padding: "6px 9px",
+          fontSize: "0.70rem",
         },
       },
       MuiLink: {
@@ -109,7 +140,8 @@ export const theme = responsiveFontSizes(
       },
       MuiPaper: {
         rounded: {
-          borderRadius: "16px",
+          borderRadius: "28px",
+          backdropFilter: "blur(4px)",
         },
       },
       MuiStepper: {
@@ -120,9 +152,10 @@ export const theme = responsiveFontSizes(
       },
       MuiStep: {
         root: {
-          backgroundColor: COLORS.nearBlackWithMinorTransparency,
-          borderRadius: "16px",
-          padding: 16,
+          backgroundColor: COLORS.whiteWithTransparency,
+          backdropFilter: "blur(4px)",
+          borderRadius: "28px",
+          padding: "32px 32px 16px",
         },
       },
       MuiStepConnector: {
@@ -133,26 +166,45 @@ export const theme = responsiveFontSizes(
       MuiStepContent: {
         root: {
           borderLeftWidth: 0,
+          marginLeft: 0,
+          paddingLeft: 0,
         },
       },
       MuiStepLabel: {
         label: {
-          fontSize: 16,
-          fontWeight: "300",
-          "&.MuiStepLabel-active": {
-            fontWeight: "300",
-          },
-          "&.MuiStepLabel-completed": {
-            fontWeight: "300",
-          },
+          color: COLORS.white,
+          textTransform: "uppercase",
+          "&.MuiStepLabel-active": {},
+          "&.MuiStepLabel-completed": {},
+        },
+      },
+      MuiTabs: {
+        root: {
+          borderBottom: `1px solid ${COLORS.white}`,
+        },
+        indicator: {
+          height: "100%",
+          background: "linear-gradient(20deg, #f44b1b 0%, #eeb430 100%);",
+          zIndex: -1,
         },
       },
       MuiTab: {
         root: {
+          color: COLORS.white,
+          fontFamily: "Suisse BP Intl, sans-serif",
+          fontWeight: "bold",
           fontSize: 18,
-          fontWeight: "300",
           padding: 12,
+          letterSpacing: "-0.69px",
           textTransform: "none",
+        },
+        textColorInherit: {
+          opacity: 1,
+        },
+      },
+      MuiTableCell: {
+        root: {
+          borderBottom: "none",
         },
       },
     },

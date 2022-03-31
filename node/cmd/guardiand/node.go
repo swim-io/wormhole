@@ -2,30 +2,25 @@ package guardiand
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/certusone/wormhole/node/pkg/notify/discord"
+	"github.com/certusone/wormhole/node/pkg/telemetry"
+	"github.com/certusone/wormhole/node/pkg/version"
+	"github.com/gagliardetto/solana-go/rpc"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
-	"syscall"
-
-	"github.com/certusone/wormhole/node/pkg/db"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	solana_types "github.com/gagliardetto/solana-go"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	eth_common "github.com/ethereum/go-ethereum/common"
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
 	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/devnet"
@@ -38,8 +33,16 @@ import (
 	solana "github.com/certusone/wormhole/node/pkg/solana"
 	"github.com/certusone/wormhole/node/pkg/supervisor"
 	"github.com/certusone/wormhole/node/pkg/vaa"
+	eth_common "github.com/ethereum/go-ethereum/common"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"github.com/certusone/wormhole/node/pkg/terra"
+
+	"github.com/certusone/wormhole/node/pkg/algorand"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -72,9 +75,31 @@ var (
 	ethRopstenRPC      *string
 	ethRopstenContract *string
 
+	auroraRPC      *string
+	auroraContract *string
+
+	fantomRPC      *string
+	fantomContract *string
+
+	avalancheRPC      *string
+	avalancheContract *string
+
+	oasisRPC      *string
+	oasisContract *string
+
+	karuraRPC      *string
+	karuraContract *string
+
+	acalaRPC      *string
+	acalaContract *string
+
 	terraWS       *string
 	terraLCD      *string
 	terraContract *string
+
+	algorandRPC      *string
+	algorandToken    *string
+	algorandContract *string
 
 	solanaWsRPC *string
 	solanaRPC   *string
@@ -93,6 +118,9 @@ var (
 	tlsProdEnv  *bool
 
 	disableHeartbeatVerify *bool
+	disableTelemetry       *bool
+
+	telemetryKey *string
 
 	discordToken   *string
 	discordChannel *string
@@ -101,6 +129,7 @@ var (
 	bigTableGCPProject         *string
 	bigTableInstanceName       *string
 	bigTableTableName          *string
+	bigTableTopicName          *string
 	bigTableKeyPath            *string
 )
 
@@ -132,9 +161,31 @@ func init() {
 	ethRopstenRPC = NodeCmd.Flags().String("ethRopstenRPC", "", "Ethereum Ropsten RPC URL")
 	ethRopstenContract = NodeCmd.Flags().String("ethRopstenContract", "", "Ethereum Ropsten contract address")
 
+	avalancheRPC = NodeCmd.Flags().String("avalancheRPC", "", "Avalanche RPC URL")
+	avalancheContract = NodeCmd.Flags().String("avalancheContract", "", "Avalanche contract address")
+
+	oasisRPC = NodeCmd.Flags().String("oasisRPC", "", "Oasis RPC URL")
+	oasisContract = NodeCmd.Flags().String("oasisContract", "", "Oasis contract address")
+
+	auroraRPC = NodeCmd.Flags().String("auroraRPC", "", "Aurora Websocket RPC URL")
+	auroraContract = NodeCmd.Flags().String("auroraContract", "", "Aurora contract address")
+
+	fantomRPC = NodeCmd.Flags().String("fantomRPC", "", "Fantom Websocket RPC URL")
+	fantomContract = NodeCmd.Flags().String("fantomContract", "", "Fantom contract address")
+
+	karuraRPC = NodeCmd.Flags().String("karuraRPC", "", "Karura RPC URL")
+	karuraContract = NodeCmd.Flags().String("karuraContract", "", "Karura contract address")
+
+	acalaRPC = NodeCmd.Flags().String("acalaRPC", "", "Acala RPC URL")
+	acalaContract = NodeCmd.Flags().String("acalaContract", "", "Acala contract address")
+
 	terraWS = NodeCmd.Flags().String("terraWS", "", "Path to terrad root for websocket connection")
 	terraLCD = NodeCmd.Flags().String("terraLCD", "", "Path to LCD service root for http calls")
 	terraContract = NodeCmd.Flags().String("terraContract", "", "Wormhole contract address on Terra blockchain")
+
+	algorandRPC = NodeCmd.Flags().String("algorandRPC", "", "Algorand RPC URL")
+	algorandToken = NodeCmd.Flags().String("algorandToken", "", "Algorand access token")
+	algorandContract = NodeCmd.Flags().String("algorandContract", "", "Algorand contract")
 
 	solanaWsRPC = NodeCmd.Flags().String("solanaWS", "", "Solana Websocket URL (required")
 	solanaRPC = NodeCmd.Flags().String("solanaRPC", "", "Solana RPC URL (required")
@@ -155,6 +206,11 @@ func init() {
 
 	disableHeartbeatVerify = NodeCmd.Flags().Bool("disableHeartbeatVerify", false,
 		"Disable heartbeat signature verification (useful during network startup)")
+	disableTelemetry = NodeCmd.Flags().Bool("disableTelemetry", false,
+		"Disable telemetry")
+
+	telemetryKey = NodeCmd.Flags().String("telemetryKey", "",
+		"Telemetry write key")
 
 	discordToken = NodeCmd.Flags().String("discordToken", "", "Discord bot token (optional)")
 	discordChannel = NodeCmd.Flags().String("discordChannel", "", "Discord channel name (optional)")
@@ -163,6 +219,7 @@ func init() {
 	bigTableGCPProject = NodeCmd.Flags().String("bigTableGCPProject", "", "Google Cloud project ID for storing events")
 	bigTableInstanceName = NodeCmd.Flags().String("bigTableInstanceName", "", "BigTable instance name for storing events")
 	bigTableTableName = NodeCmd.Flags().String("bigTableTableName", "", "BigTable table name to store events in")
+	bigTableTopicName = NodeCmd.Flags().String("bigTableTopicName", "", "GCP topic name to publish to")
 	bigTableKeyPath = NodeCmd.Flags().String("bigTableKeyPath", "", "Path to json Service Account key")
 }
 
@@ -184,38 +241,6 @@ const devwarning = `
 
 `
 
-func rootLoggerName() string {
-	if *unsafeDevMode {
-		// FIXME: add hostname to root logger for cleaner console output in multi-node development.
-		// The proper way is to change the output format to include the hostname.
-		hostname, err := os.Hostname()
-		if err != nil {
-			panic(err)
-		}
-
-		return fmt.Sprintf("%s-%s", "wormhole", hostname)
-	} else {
-		return "wormhole"
-	}
-}
-
-// lockMemory locks current and future pages in memory to protect secret keys from being swapped out to disk.
-// It's possible (and strongly recommended) to deploy Wormhole such that keys are only ever
-// stored in memory and never touch the disk. This is a privileged operation and requires CAP_IPC_LOCK.
-func lockMemory() {
-	err := unix.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE)
-	if err != nil {
-		fmt.Printf("Failed to lock memory: %v (CAP_IPC_LOCK missing?)\n", err)
-		os.Exit(1)
-	}
-}
-
-// setRestrictiveUmask masks the group and world bits. This ensures that key material
-// and sockets we create aren't accidentally group- or world-readable.
-func setRestrictiveUmask() {
-	syscall.Umask(0077) // cannot fail
-}
-
 // NodeCmd represents the node command
 var NodeCmd = &cobra.Command{
 	Use:   "node",
@@ -228,8 +253,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		fmt.Print(devwarning)
 	}
 
-	lockMemory()
-	setRestrictiveUmask()
+	common.LockMemory()
+	common.SetRestrictiveUmask()
 
 	// Refuse to run as root in production mode.
 	if !*unsafeDevMode && os.Geteuid() == 0 {
@@ -245,8 +270,24 @@ func runNode(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Our root logger. Convert directly to a regular Zap logger.
-	logger := ipfslog.Logger(rootLoggerName()).Desugar()
+	logger := zap.New(zapcore.NewCore(
+		consoleEncoder{zapcore.NewConsoleEncoder(
+			zap.NewDevelopmentEncoderConfig())},
+		zapcore.AddSync(zapcore.Lock(os.Stderr)),
+		zap.NewAtomicLevelAt(zapcore.Level(lvl))))
+
+	if *unsafeDevMode {
+		// Use the hostname as nodeName. For production, we don't want to do this to
+		// prevent accidentally leaking sensitive hostnames.
+		hostname, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		*nodeName = hostname
+
+		// Put node name into the log for development.
+		logger = logger.Named(*nodeName)
+	}
 
 	// Override the default go-log config, which uses a magic environment variable.
 	ipfslog.SetAllLoggers(lvl)
@@ -255,10 +296,20 @@ func runNode(cmd *cobra.Command, args []string) {
 	readiness.RegisterComponent(common.ReadinessEthSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
 	readiness.RegisterComponent(common.ReadinessTerraSyncing)
+	if *unsafeDevMode {
+		readiness.RegisterComponent(common.ReadinessAlgorandSyncing)
+	}
 	readiness.RegisterComponent(common.ReadinessBSCSyncing)
 	readiness.RegisterComponent(common.ReadinessPolygonSyncing)
+	readiness.RegisterComponent(common.ReadinessAvalancheSyncing)
+	readiness.RegisterComponent(common.ReadinessOasisSyncing)
+	readiness.RegisterComponent(common.ReadinessFantomSyncing)
+
 	if *testnetMode {
 		readiness.RegisterComponent(common.ReadinessEthRopstenSyncing)
+		readiness.RegisterComponent(common.ReadinessAuroraSyncing)
+		readiness.RegisterComponent(common.ReadinessKaruraSyncing)
+		readiness.RegisterComponent(common.ReadinessAcalaSyncing)
 	}
 
 	if *statusAddr != "" {
@@ -300,14 +351,12 @@ func runNode(cmd *cobra.Command, args []string) {
 		*ethContract = devnet.GanacheWormholeContractAddress.Hex()
 		*bscContract = devnet.GanacheWormholeContractAddress.Hex()
 		*polygonContract = devnet.GanacheWormholeContractAddress.Hex()
-
-		// Use the hostname as nodeName. For production, we don't want to do this to
-		// prevent accidentally leaking sensitive hostnames.
-		hostname, err := os.Hostname()
-		if err != nil {
-			panic(err)
-		}
-		*nodeName = hostname
+		*avalancheContract = devnet.GanacheWormholeContractAddress.Hex()
+		*oasisContract = devnet.GanacheWormholeContractAddress.Hex()
+		*auroraContract = devnet.GanacheWormholeContractAddress.Hex()
+		*fantomContract = devnet.GanacheWormholeContractAddress.Hex()
+		*karuraContract = devnet.GanacheWormholeContractAddress.Hex()
+		*acalaContract = devnet.GanacheWormholeContractAddress.Hex()
 	}
 
 	// Verify flags
@@ -342,6 +391,18 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *polygonContract == "" {
 		logger.Fatal("Please specify --polygonContract")
 	}
+	if *avalancheRPC == "" {
+		logger.Fatal("Please specify --avalancheRPC")
+	}
+	if *oasisRPC == "" {
+		logger.Fatal("Please specify --oasisRPC")
+	}
+	if *fantomRPC == "" {
+		logger.Fatal("Please specify --fantomRPC")
+	}
+	if *fantomContract == "" && !*unsafeDevMode {
+		logger.Fatal("Please specify --fantomContract")
+	}
 	if *testnetMode {
 		if *ethRopstenRPC == "" {
 			logger.Fatal("Please specify --ethRopstenRPC")
@@ -349,12 +410,48 @@ func runNode(cmd *cobra.Command, args []string) {
 		if *ethRopstenContract == "" {
 			logger.Fatal("Please specify --ethRopstenContract")
 		}
+		if *auroraRPC == "" {
+			logger.Fatal("Please specify --auroraRPC")
+		}
+		if *auroraContract == "" {
+			logger.Fatal("Please specify --auroraContract")
+		}
+		if *karuraRPC == "" {
+			logger.Fatal("Please specify --karuraRPC")
+		}
+		if *karuraContract == "" {
+			logger.Fatal("Please specify --karuraContract")
+		}
+		if *acalaRPC == "" {
+			logger.Fatal("Please specify --acalaRPC")
+		}
+		if *acalaContract == "" {
+			logger.Fatal("Please specify --acalaContract")
+		}
 	} else {
 		if *ethRopstenRPC != "" {
 			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
 		}
 		if *ethRopstenContract != "" {
 			logger.Fatal("Please do not specify --ethRopstenContract in non-testnet mode")
+		}
+		if *auroraRPC != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --auroraRPC")
+		}
+		if *auroraContract != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --auroraContract")
+		}
+		if *karuraRPC != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --karuraRPC")
+		}
+		if *karuraContract != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --karuraContract")
+		}
+		if *acalaRPC != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --acalaRPC")
+		}
+		if *acalaContract != "" && !*unsafeDevMode {
+			logger.Fatal("Please do not specify --acalaContract")
 		}
 	}
 	if *nodeName == "" {
@@ -381,6 +478,18 @@ func runNode(cmd *cobra.Command, args []string) {
 		logger.Fatal("Please specify --terraContract")
 	}
 
+	if *unsafeDevMode {
+		if *algorandRPC == "" {
+			logger.Fatal("Please specify --algorandRPC")
+		}
+		if *algorandToken == "" {
+			logger.Fatal("Please specify --algorandToken")
+		}
+		if *algorandContract == "" {
+			logger.Fatal("Please specify --algorandContract")
+		}
+	}
+
 	if *bigTablePersistenceEnabled {
 		if *bigTableGCPProject == "" {
 			logger.Fatal("Please specify --bigTableGCPProject")
@@ -390,6 +499,9 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		if *bigTableTableName == "" {
 			logger.Fatal("Please specify --bigTableTableName")
+		}
+		if *bigTableTopicName == "" {
+			logger.Fatal("Please specify --bigTableTopicName")
 		}
 		if *bigTableKeyPath == "" {
 			logger.Fatal("Please specify --bigTableKeyPath")
@@ -423,6 +535,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	bscContractAddr := eth_common.HexToAddress(*bscContract)
 	polygonContractAddr := eth_common.HexToAddress(*polygonContract)
 	ethRopstenContractAddr := eth_common.HexToAddress(*ethRopstenContract)
+	avalancheContractAddr := eth_common.HexToAddress(*avalancheContract)
+	oasisContractAddr := eth_common.HexToAddress(*oasisContract)
+	auroraContractAddr := eth_common.HexToAddress(*auroraContract)
+	fantomContractAddr := eth_common.HexToAddress(*fantomContract)
+	karuraContractAddr := eth_common.HexToAddress(*karuraContract)
+	acalaContractAddr := eth_common.HexToAddress(*acalaContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -483,11 +601,53 @@ func runNode(cmd *cobra.Command, args []string) {
 	// Inbound signed VAAs
 	signedInC := make(chan *gossipv1.SignedVAAWithQuorum, 50)
 
+	// Inbound observation requests from the p2p service (for all chains)
+	obsvReqC := make(chan *gossipv1.ObservationRequest, 50)
+
+	// Outbound observation requests
+	obsvReqSendC := make(chan *gossipv1.ObservationRequest)
+
 	// Injected VAAs (manually generated rather than created via observation)
 	injectC := make(chan *vaa.VAA)
 
 	// Guardian set state managed by processor
 	gst := common.NewGuardianSetState()
+
+	// Per-chain observation requests
+	chainObsvReqC := make(map[vaa.ChainID]chan *gossipv1.ObservationRequest)
+
+	// Observation request channel for each chain supporting observation requests.
+	chainObsvReqC[vaa.ChainIDSolana] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDEthereum] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDTerra] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDBSC] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDPolygon] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDAvalanche] = make(chan *gossipv1.ObservationRequest)
+	chainObsvReqC[vaa.ChainIDOasis] = make(chan *gossipv1.ObservationRequest)
+	if *testnetMode {
+		chainObsvReqC[vaa.ChainIDFantom] = make(chan *gossipv1.ObservationRequest)
+		chainObsvReqC[vaa.ChainIDKarura] = make(chan *gossipv1.ObservationRequest)
+		chainObsvReqC[vaa.ChainIDAcala] = make(chan *gossipv1.ObservationRequest)
+		chainObsvReqC[vaa.ChainIDEthereumRopsten] = make(chan *gossipv1.ObservationRequest)
+	}
+
+	// Multiplex observation requests to the appropriate chain
+	go func() {
+		for {
+			select {
+			case <-rootCtx.Done():
+				return
+			case req := <-obsvReqC:
+				if channel, ok := chainObsvReqC[vaa.ChainID(req.ChainId)]; ok {
+					channel <- req
+				} else {
+					logger.Error("unknown chain ID for reobservation request",
+						zap.Uint32("chain_id", req.ChainId),
+						zap.String("tx_hash", hex.EncodeToString(req.TxHash)))
+				}
+			}
+		}
+	}()
 
 	var notifier *discord.DiscordNotifier
 	if *discordToken != "" {
@@ -506,11 +666,50 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		priv = devnet.DeterministicP2PPrivKeyByIndex(int64(idx))
 	} else {
-		priv, err = getOrCreateNodeKey(logger, *nodeKeyPath)
+		priv, err = common.GetOrCreateNodeKey(logger, *nodeKeyPath)
 		if err != nil {
 			logger.Fatal("Failed to load node key", zap.Error(err))
 		}
 	}
+
+	// Enable unless it is disabled. For devnet, only when --telemetryKey is set.
+	if !*disableTelemetry && (!*unsafeDevMode || *unsafeDevMode && *telemetryKey != "") {
+		logger.Info("Telemetry enabled")
+
+		if *telemetryKey == "" {
+			logger.Fatal("Please specify --telemetryKey")
+		}
+
+		creds, err := decryptTelemetryServiceAccount()
+		if err != nil {
+			logger.Fatal("Failed to decrypt telemetry service account", zap.Error(err))
+		}
+
+		// Get libp2p peer ID from private key
+		pk := priv.GetPublic()
+		peerID, err := peer.IDFromPublicKey(pk)
+		if err != nil {
+			logger.Fatal("Failed to get peer ID from private key", zap.Error(err))
+		}
+
+		tm, err := telemetry.New(context.Background(), telemetryProject, creds, map[string]string{
+			"node_name":     *nodeName,
+			"node_key":      peerID.Pretty(),
+			"guardian_addr": guardianAddr,
+			"network":       *p2pNetworkID,
+			"version":       version.Version(),
+		})
+		if err != nil {
+			logger.Fatal("Failed to initialize telemetry", zap.Error(err))
+		}
+		defer tm.Close()
+		logger = tm.WrapLogger(logger)
+	} else {
+		logger.Info("Telemetry disabled")
+	}
+
+	// Redirect ipfs logs to plain zap
+	ipfslog.SetPrimaryCore(logger.Core())
 
 	// provides methods for reporting progress toward message attestation, and channels for receiving attestation lifecyclye events.
 	attestationEvents := reporter.EventListener(logger)
@@ -522,7 +721,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	}
 
 	// local admin service socket
-	adminService, err := adminServiceRunnable(logger, *adminSocketPath, injectC, db, gst)
+	adminService, err := adminServiceRunnable(logger, *adminSocketPath, injectC, signedInC, obsvReqSendC, db, gst)
 	if err != nil {
 		logger.Fatal("failed to create admin service socket", zap.Error(err))
 	}
@@ -536,28 +735,57 @@ func runNode(cmd *cobra.Command, args []string) {
 	// Run supervisor.
 	supervisor.New(rootCtx, logger, func(ctx context.Context) error {
 		if err := supervisor.Run(ctx, "p2p", p2p.Run(
-			obsvC, sendC, signedInC, priv, gk, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, *nodeName, *disableHeartbeatVerify, rootCtxCancel)); err != nil {
+			obsvC, obsvReqC, obsvReqSendC, sendC, signedInC, priv, gk, gst, *p2pPort, *p2pNetworkID, *p2pBootstrap, *nodeName, *disableHeartbeatVerify, rootCtxCancel)); err != nil {
 			return err
 		}
 
 		if err := supervisor.Run(ctx, "ethwatch",
-			ethereum.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC).Run); err != nil {
+			ethereum.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC, 1, chainObsvReqC[vaa.ChainIDEthereum]).Run); err != nil {
 			return err
 		}
 
 		if err := supervisor.Run(ctx, "bscwatch",
-			ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
+			ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil, 1, chainObsvReqC[vaa.ChainIDBSC]).Run); err != nil {
 			return err
 		}
 
 		if err := supervisor.Run(ctx, "polygonwatch",
-			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil).Run); err != nil {
+			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil, 512, chainObsvReqC[vaa.ChainIDPolygon]).Run); err != nil {
+			// Special case: Polygon can fork like PoW Ethereum, and it's not clear what the safe number of blocks is
+			//
+			// Hardcode the minimum number of confirmations to 512 regardless of what the smart contract specifies to protect
+			// developers from accidentally specifying an unsafe number of confirmations. We can remove this restriction as soon
+			// as specific public guidance exists for Polygon developers.
+			return err
+		}
+		if err := supervisor.Run(ctx, "avalanchewatch",
+			ethereum.NewEthWatcher(*avalancheRPC, avalancheContractAddr, "avalanche", common.ReadinessAvalancheSyncing, vaa.ChainIDAvalanche, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAvalanche]).Run); err != nil {
+			return err
+		}
+		if err := supervisor.Run(ctx, "oasiswatch",
+			ethereum.NewEthWatcher(*oasisRPC, oasisContractAddr, "oasis", common.ReadinessOasisSyncing, vaa.ChainIDOasis, lockC, nil, 1, chainObsvReqC[vaa.ChainIDOasis]).Run); err != nil {
+			return err
+		}
+		if err := supervisor.Run(ctx, "fantomwatch",
+			ethereum.NewEthWatcher(*fantomRPC, fantomContractAddr, "fantom", common.ReadinessFantomSyncing, vaa.ChainIDFantom, lockC, nil, 1, chainObsvReqC[vaa.ChainIDFantom]).Run); err != nil {
 			return err
 		}
 
 		if *testnetMode {
 			if err := supervisor.Run(ctx, "ethropstenwatch",
-				ethereum.NewEthWatcher(*ethRopstenRPC, ethRopstenContractAddr, "ethropsten", common.ReadinessEthRopstenSyncing, vaa.ChainIDEthereumRopsten, lockC, setC).Run); err != nil {
+				ethereum.NewEthWatcher(*ethRopstenRPC, ethRopstenContractAddr, "ethropsten", common.ReadinessEthRopstenSyncing, vaa.ChainIDEthereumRopsten, lockC, nil, 1, chainObsvReqC[vaa.ChainIDEthereumRopsten]).Run); err != nil {
+				return err
+			}
+			if err := supervisor.Run(ctx, "aurorawatch",
+				ethereum.NewEthWatcher(*auroraRPC, auroraContractAddr, "aurora", common.ReadinessAuroraSyncing, vaa.ChainIDAurora, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAurora]).Run); err != nil {
+				return err
+			}
+			if err := supervisor.Run(ctx, "karurawatch",
+				ethereum.NewEthWatcher(*karuraRPC, karuraContractAddr, "karura", common.ReadinessKaruraSyncing, vaa.ChainIDKarura, lockC, nil, 1, chainObsvReqC[vaa.ChainIDKarura]).Run); err != nil {
+				return err
+			}
+			if err := supervisor.Run(ctx, "acalawatch",
+				ethereum.NewEthWatcher(*acalaRPC, acalaContractAddr, "acala", common.ReadinessAcalaSyncing, vaa.ChainIDAcala, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAcala]).Run); err != nil {
 				return err
 			}
 		}
@@ -565,17 +793,24 @@ func runNode(cmd *cobra.Command, args []string) {
 		// Start Terra watcher only if configured
 		logger.Info("Starting Terra watcher")
 		if err := supervisor.Run(ctx, "terrawatch",
-			terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
+			terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC, chainObsvReqC[vaa.ChainIDTerra]).Run); err != nil {
 			return err
 		}
 
+		if *unsafeDevMode {
+			if err := supervisor.Run(ctx, "algorandwatch",
+				algorand.NewWatcher(*algorandRPC, *algorandToken, *algorandContract, lockC, setC).Run); err != nil {
+				return err
+			}
+		}
+
 		if err := supervisor.Run(ctx, "solwatch-confirmed",
-			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, rpc.CommitmentConfirmed).Run); err != nil {
+			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, nil, rpc.CommitmentConfirmed).Run); err != nil {
 			return err
 		}
 
 		if err := supervisor.Run(ctx, "solwatch-finalized",
-			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, rpc.CommitmentFinalized).Run); err != nil {
+			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, chainObsvReqC[vaa.ChainIDSolana], rpc.CommitmentFinalized).Run); err != nil {
 			return err
 		}
 
@@ -620,6 +855,7 @@ func runNode(cmd *cobra.Command, args []string) {
 				GcpProjectID:    *bigTableGCPProject,
 				GcpInstanceName: *bigTableInstanceName,
 				TableName:       *bigTableTableName,
+				TopicName:       *bigTableTopicName,
 				GcpKeyFilePath:  *bigTableKeyPath,
 			}
 			if err := supervisor.Run(ctx, "bigtable", reporter.BigTableWriter(attestationEvents, bigTableConnection)); err != nil {
@@ -639,4 +875,24 @@ func runNode(cmd *cobra.Command, args []string) {
 	<-rootCtx.Done()
 	logger.Info("root context cancelled, exiting...")
 	// TODO: wait for things to shut down gracefully
+}
+
+func decryptTelemetryServiceAccount() ([]byte, error) {
+	// Decrypt service account credentials
+	key, err := base64.StdEncoding.DecodeString(*telemetryKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode: %w", err)
+	}
+
+	ciphertext, err := base64.StdEncoding.DecodeString(telemetryServiceAccount)
+	if err != nil {
+		panic(err)
+	}
+
+	creds, err := common.DecryptAESGCM(ciphertext, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	return creds, err
 }

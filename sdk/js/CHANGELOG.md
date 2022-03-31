@@ -1,5 +1,91 @@
 # Changelog
 
+## 0.2.3
+
+### Added
+
+Expose feeRecipientAddress for redeemOnSolana
+
+## 0.2.2
+
+### Added
+
+Include fee in parseTransferPayload
+
+## 0.2.1
+
+### Added
+
+Default relayerFee parameter (defaults to 0) to each token bridge transfer function
+
+Expose overrides parameter for signer \*Eth functions
+
+Karura support
+
+Acala support
+
+## 0.2.0
+
+### Changed
+
+Updated @terra-money/terra.js to 3.0.7
+
+Removed @terra-money/wallet-provider
+
+Removed walletAddress parameter from getIsTransferCompletedTerra
+
+## 0.1.7
+
+### Added
+
+Fantom support
+
+Aurora support
+
+## 0.1.6
+
+### Added
+
+added parseSequencesFromLog\*
+
+Terra NFT token bridge
+
+getIsTransferCompleted on NFT bridge
+
+export for wasm, createPostVaaInstructionSolana, createVerifySignaturesInstructionsSolana, postVaaSolana, postVaaSolanaWithRetry, and getSignedVAAWithRetry
+
+re-export top level objects ethers_contracts, solana, terra, rpc, utils, bridge, token_bridge, nft_bridge
+
+## 0.1.5
+
+### Added
+
+added postVaaSolanaWithRetry, which will retry transactions which failed during processing
+
+added createVerifySignaturesInstructions, createPostVaaInstruction, which allows users to construct the postVaa process for themselves at the instruction level
+
+added chunks and sendAndConfirmTransactionsWithRetry as utility functions
+
+added integration tests for postVaaSolanaWithRetry
+
+initial Oasis support
+
+### Changed
+
+deprecated postVaaSolana
+
+## 0.1.4
+
+initial AVAX testnet support
+
+## 0.1.3
+
+### Added
+
+getSignedVAAHash
+
+getIsTransferCompleted
+
 ## 0.1.1
 
 ### Added

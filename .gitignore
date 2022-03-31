@@ -11,3 +11,4 @@ venv
 bigtable-admin.json
 bigtable-writer.json
 tmp/
+**/cert.pem

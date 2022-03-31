@@ -1,4 +1,5 @@
-#![feature(const_generics)]
+
+#![feature(adt_const_params)]
 #![allow(non_upper_case_globals)]
 #![allow(incomplete_features)]
 
@@ -22,7 +23,7 @@ pub use api::{
 use bridge::PostVAAData;
 
 solitaire! {
-    Initialize(InitializeData)                  => initialize,
-    PostMessage(PostMessageData)                => post_message,
-    PostVAA(PostVAAData)                        => post_vaa,
+    Initialize  => initialize,
+    PostMessage => post_message,
+    PostVAA     => post_vaa,
 }

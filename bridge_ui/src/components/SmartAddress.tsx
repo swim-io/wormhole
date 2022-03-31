@@ -1,8 +1,12 @@
 import {
   ChainId,
+  CHAIN_ID_AURORA,
+  CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
   CHAIN_ID_ETHEREUM_ROPSTEN,
+  CHAIN_ID_FANTOM,
+  CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
@@ -110,6 +114,22 @@ export default function SmartAddress({
     ? `https://${
         CLUSTER === "testnet" ? "mumbai." : ""
       }polygonscan.com/address/${useableAddress}`
+    : chainId === CHAIN_ID_AVAX
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }snowtrace.io/address/${useableAddress}`
+    : chainId === CHAIN_ID_OASIS
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }explorer.emerald.oasis.dev/address/${useableAddress}`
+    : chainId === CHAIN_ID_AURORA
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }aurorascan.dev/address/${useableAddress}`
+    : chainId === CHAIN_ID_FANTOM
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }ftmscan.com/address/${useableAddress}`
     : chainId === CHAIN_ID_SOLANA
     ? `https://explorer.solana.com/address/${useableAddress}${
         CLUSTER === "testnet"
@@ -135,7 +155,7 @@ export default function SmartAddress({
     <Button
       size="small"
       variant="outlined"
-      endIcon={<OpenInNew />}
+      startIcon={<OpenInNew />}
       className={classes.buttons}
       href={explorerAddress}
       target="_blank"
@@ -149,7 +169,7 @@ export default function SmartAddress({
     <Button
       size="small"
       variant="outlined"
-      endIcon={<FileCopy />}
+      startIcon={<FileCopy />}
       onClick={copyToClipboard}
       className={classes.buttons}
     >
