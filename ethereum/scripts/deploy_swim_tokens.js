@@ -1,7 +1,7 @@
 // run this script with truffle exec
 const TokenImplementation = artifacts.require("TokenImplementation");
 
-module.exports = async function(callback) {
+module.exports = async function (callback) {
   try {
     const accounts = await web3.eth.getAccounts();
 
@@ -17,6 +17,8 @@ module.exports = async function(callback) {
     // mint 1,000,000,000 units of each
     await usdc.mint(accounts[0], "1000000000000000");
     await usdt.mint(accounts[0], "1000000000000000");
+
+    console.log(`Minted 1000000000 of each to ${accounts[0]}`);
 
     // BSC
     const busd = await TokenImplementation.new();
@@ -46,6 +48,8 @@ module.exports = async function(callback) {
     // mint 1,000,000,000 units of each
     await busd.mint(accounts[0], "1000000000000000000000000000");
     await bscUsd.mint(accounts[0], "1000000000000000000000000000");
+
+    console.log(`Minted 1000000000 of each to ${accounts[0]}`);
 
     callback();
   } catch (e) {
