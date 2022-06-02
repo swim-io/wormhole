@@ -1,1 +1,0 @@
-(self.webpackChunktest_ui=self.webpackChunktest_ui||[]).push([[726],{71156:function(){},6567:function(){}}]);
