@@ -13,6 +13,10 @@ import {
   getKey,
   RedisTables,
 } from "../helpers/redisHelper";
+import {
+  parseSwimPayload,
+  parseTransferWithArbPayload
+} from "../utils/swim";
 
 const logger = getLogger();
 
@@ -105,35 +109,60 @@ export async function parseAndValidateVaa(
   //   return "VAA is not from a monitored contract.";
   // }
 
-  const isCorrectPayloadType = parsedVaa.payload[0] === 1;
+  const payloadType = parsedVaa.payload[0];
+  let parsedVaaPayload: any = null;
+  if (payloadType === 3) {
+    try {
+      parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
+    } catch (e) {
+      logger.error("Encountered error while parsing vaa payload" + e);
+    }
 
-  if (!isCorrectPayloadType) {
-    logger.debug("Specified vaa is not payload type 1.");
-    return "Specified vaa is not payload type 1..";
-  }
+    if (!parsedVaaPayload) {
+      logger.debug("Failed to parse the transfer with data payload.");
+      return "Could not parse the transfer with data payload.";
+    }
 
-  let parsedPayload: any = null;
-  try {
-    parsedPayload = parseTransferPayload(Buffer.from(parsedVaa.payload));
-  } catch (e) {
-    logger.error("Encountered error while parsing vaa payload" + e);
-  }
+    // Make sure this is specifically a Swim Payload 3
+    let swimPayload: any = null;
+    try {
+      swimPayload = parseSwimPayload(Buffer.from(parsedVaaPayload.extraPayload));
+    } catch (e) {
+      logger.error("Encountered error while parsing swim payload from arbitrary data in payload 3" + e) ;
+      return "Could not parse swim payload";
+    }
 
-  if (!parsedPayload) {
-    logger.debug("Failed to parse the transfer payload.");
-    return "Could not parse the transfer payload.";
+    // TODO swim payload version check
+
+  } else if (payloadType === 1) {
+    let parsedVaaPayload: any = null;
+    try {
+      parsedVaaPayload = parseTransferPayload(Buffer.from(parsedVaa.payload));
+    } catch (e) {
+      logger.error("Encountered error while parsing vaa payload" + e);
+    }
+
+    if (!parsedVaaPayload) {
+      logger.debug("Failed to parse the transfer payload.");
+      return "Could not parse the transfer payload.";
+    }
+
+  } else {
+    const error = "Specified vaa is not payload type 1 or swim payload"
+    logger.debug(error);
+    return error
   }
 
   const originAddressNative = hexToNativeString(
-    parsedPayload.originAddress,
-    parsedPayload.originChain
+    parsedVaaPayload.originAddress,
+    parsedVaaPayload.originChain
   );
 
   const isApprovedToken = env.supportedTokens.find((token) => {
     return (
       originAddressNative &&
       token.address.toLowerCase() === originAddressNative.toLowerCase() &&
-      token.chainId === parsedPayload.originChain
+      token.chainId === parsedVaaPayload.originChain
     );
   });
 
@@ -143,14 +172,14 @@ export async function parseAndValidateVaa(
   }
 
   //TODO configurable
-  const sufficientFee = parsedPayload.fee && parsedPayload.fee > 0;
+  const sufficientFee = parsedVaaPayload.fee && parsedVaaPayload.fee > 0;
 
   if (!sufficientFee) {
     logger.debug("Token transfer does not have a sufficient fee.");
     return "Token transfer does not have a sufficient fee.";
   }
 
-  const key = getKey(parsedPayload.originChain, originAddressNative as string); //was null checked above
+  const key = getKey(parsedVaaPayload.originChain, originAddressNative as string); //was null checked above
 
   const isQueued = await checkQueue(key);
   if (isQueued) {
@@ -158,7 +187,7 @@ export async function parseAndValidateVaa(
   }
   //TODO maybe an is redeemed check?
 
-  const fullyTyped = { ...parsedVaa, payload: parsedPayload };
+  const fullyTyped = { ...parsedVaa, payload: parsedVaaPayload };
   return fullyTyped;
 }
 
