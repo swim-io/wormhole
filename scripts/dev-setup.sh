@@ -157,7 +157,7 @@ function use-namespace {
 
 export DOCKER_BUILDKIT=1
 
-alias start-recommended-minikube="minikube start --driver=docker --kubernetes-version=v1.22.3 --cpus=$(nproc) --memory=16G --disk-size=120g --namespace=wormhole"
+alias start-recommended-minikube="minikube start --driver=docker --kubernetes-version=v1.22.3 --cpus=$(nproc) --memory=12G --disk-size=120g --namespace=wormhole"
 EOF
 
 cat <<EOF
