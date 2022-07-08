@@ -1,4 +1,5 @@
 import {
+  CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
@@ -7,8 +8,9 @@ import {
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
+  CHAIN_ID_TERRA2,
 } from "@certusone/wormhole-sdk";
-import { makeStyles, Paper, Typography } from "@material-ui/core";
+import { Container, makeStyles, Paper, Typography } from "@material-ui/core";
 import { useMemo } from "react";
 import { COLORS } from "../../muiTheme";
 import {
@@ -17,6 +19,7 @@ import {
   SOL_CUSTODY_ADDRESS,
   SOL_NFT_CUSTODY_ADDRESS,
 } from "../../utils/consts";
+import HeaderText from "../HeaderText";
 import SmartAddress from "../SmartAddress";
 import MuiReactTable from "./tableComponents/MuiReactTable";
 
@@ -68,7 +71,7 @@ const CustodyAddresses: React.FC<any> = () => {
         nftAddress: getNFTBridgeAddressForChain(CHAIN_ID_BSC),
       },
       {
-        chainName: "Terra",
+        chainName: "Terra Classic",
         chainId: CHAIN_ID_TERRA,
         tokenAddress: getTokenBridgeAddressForChain(CHAIN_ID_TERRA),
         nftAddress: null,
@@ -96,6 +99,18 @@ const CustodyAddresses: React.FC<any> = () => {
         chainId: CHAIN_ID_FANTOM,
         tokenAddress: getTokenBridgeAddressForChain(CHAIN_ID_FANTOM),
         nftAddress: getNFTBridgeAddressForChain(CHAIN_ID_FANTOM),
+      },
+      {
+        chainName: "Aurora",
+        chainId: CHAIN_ID_AURORA,
+        tokenAddress: getTokenBridgeAddressForChain(CHAIN_ID_AURORA),
+        nftAddress: getNFTBridgeAddressForChain(CHAIN_ID_AURORA),
+      },
+      {
+        chainName: "Terra",
+        chainId: CHAIN_ID_TERRA2,
+        tokenAddress: getTokenBridgeAddressForChain(CHAIN_ID_TERRA2),
+        nftAddress: null,
       },
     ];
   }, []);
@@ -159,10 +174,13 @@ const CustodyAddresses: React.FC<any> = () => {
   );
 
   return (
-    <>
+    <Container maxWidth="lg">
+      <Container maxWidth="md">
+        <HeaderText white>Custody</HeaderText>
+      </Container>
       {header}
       <Paper className={classes.mainPaper}>{table}</Paper>
-    </>
+    </Container>
   );
 };
 

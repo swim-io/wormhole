@@ -7,23 +7,16 @@
 use borsh::BorshDeserialize;
 use solana_program::{
     pubkey::Pubkey,
-    system_program,
-    sysvar::{
-        self,
-        Sysvar as SolanaSysvar,
-        SysvarId,
-    },
+    sysvar::Sysvar as SolanaSysvar,
 };
-use std::marker::PhantomData;
 
 use crate::{
-    trace,
     processors::seeded::{
         AccountOwner,
         Owned,
     },
+    trace,
     types::*,
-    AccountState::MaybeInitialized,
     Context,
     Result,
     SolitaireError,
@@ -37,52 +30,48 @@ pub trait Peel<'a, 'b: 'a, 'c> {
     where
         Self: Sized;
 
-    fn deps() -> Vec<Pubkey>;
-
     fn persist(&self, program_id: &Pubkey) -> Result<()>;
 }
 
 /// Peel a nullable value (0-account means None)
 impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for Option<T> {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
-	// Check for 0-account
-	if ctx.info().key == &Pubkey::new_from_array([0u8; 32]) {
-	    trace!(&format!("Peeled {} is None, returning", std::any::type_name::<Option<T>>()));
-	    Ok(None)
-	} else {
-	    Ok(Some(T::peel(ctx)?))
-	}
-    }
-
-    fn deps() -> Vec<Pubkey> {
-	T::deps()
+        // Check for 0-account
+        if ctx.info().key == &Pubkey::new_from_array([0u8; 32]) {
+            trace!(&format!(
+                "Peeled {} is None, returning",
+                std::any::type_name::<Option<T>>()
+            ));
+            Ok(None)
+        } else {
+            Ok(Some(T::peel(ctx)?))
+        }
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
-	if let Some(s) = self.as_ref() {
+        if let Some(s) = self.as_ref() {
             T::persist(s, program_id)
-	} else {
-	    trace!(&format!("Peeled {} is None, not persisting", std::any::type_name::<Option<T>>()));
-	    Ok(())
-	}
+        } else {
+            trace!(&format!(
+                "Peeled {} is None, not persisting",
+                std::any::type_name::<Option<T>>()
+            ));
+            Ok(())
+        }
     }
 }
 
 /// Peel a Derived Key
-impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>, const Seed: &'static str> Peel<'a, 'b, 'c>
-    for Derive<T, Seed>
+impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>, const SEED: &'static str> Peel<'a, 'b, 'c>
+    for Derive<T, SEED>
 {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         // Attempt to Derive Seed
-        let (derived, bump) = Pubkey::find_program_address(&[Seed.as_ref()], ctx.this);
+        let (derived, _bump) = Pubkey::find_program_address(&[SEED.as_ref()], ctx.this);
         match derived == *ctx.info().key {
             true => T::peel(ctx).map(|v| Derive(v)),
-            _ => Err(SolitaireError::InvalidDerive(*ctx.info().key, derived).into()),
+            _ => Err(SolitaireError::InvalidDerive(*ctx.info().key, derived)),
         }
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        T::deps()
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
@@ -97,13 +86,9 @@ impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for Mut<T> {
         match ctx.info().is_writable {
             true => T::peel(ctx).map(|v| Mut(v)),
             _ => Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable).into(),
+                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
             ),
         }
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        T::deps()
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
@@ -117,10 +102,6 @@ impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for MaybeMut<T> {
         T::peel(ctx).map(|v| MaybeMut(v))
     }
 
-    fn deps() -> Vec<Pubkey> {
-        T::deps()
-    }
-
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
         T::persist(self, program_id)
     }
@@ -131,12 +112,8 @@ impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for Signer<T> {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         match ctx.info().is_signer {
             true => T::peel(ctx).map(|v| Signer(v)),
-            _ => Err(SolitaireError::InvalidSigner(*ctx.info().key).into()),
+            _ => Err(SolitaireError::InvalidSigner(*ctx.info().key)),
         }
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        T::deps()
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
@@ -151,10 +128,6 @@ impl<'a, 'b: 'a, 'c, T: Peel<'a, 'b, 'c>> Peel<'a, 'b, 'c> for System<T> {
             true => T::peel(ctx).map(|v| System(v)),
             _ => panic!(),
         }
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        T::deps()
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
@@ -173,12 +146,8 @@ where
                 ctx.info().clone(),
                 Var::from_account_info(ctx.info())?,
             )),
-            _ => Err(SolitaireError::InvalidSysvar(*ctx.info().key).into()),
+            _ => Err(SolitaireError::InvalidSysvar(*ctx.info().key)),
         }
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        vec![]
     }
 
     fn persist(&self, _program_id: &Pubkey) -> Result<()> {
@@ -192,15 +161,13 @@ impl<'a, 'b: 'a, 'c> Peel<'a, 'b, 'c> for Info<'b> {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         if ctx.immutable && ctx.info().is_writable {
             return Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable).into(),
+                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
             );
         }
 
         Ok(ctx.info().clone())
     }
-    fn deps() -> Vec<Pubkey> {
-        vec![]
-    }
+
     fn persist(&self, _program_id: &Pubkey) -> Result<()> {
         Ok(())
     }
@@ -213,32 +180,32 @@ impl<
         'b: 'a,
         'c,
         T: BorshDeserialize + BorshSerialize + Owned + Default,
-        const IsInitialized: AccountState,
-    > Peel<'a, 'b, 'c> for Data<'b, T, IsInitialized>
+        const IS_INITIALIZED: AccountState,
+    > Peel<'a, 'b, 'c> for Data<'b, T, IS_INITIALIZED>
 {
     fn peel<I>(ctx: &'c mut Context<'a, 'b, 'c, I>) -> Result<Self> {
         if ctx.immutable && ctx.info().is_writable {
             return Err(
-                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable).into(),
+                SolitaireError::InvalidMutability(*ctx.info().key, ctx.info().is_writable),
             );
         }
 
         // If we're initializing the type, we should emit system/rent as deps.
-        let (initialized, data): (bool, T) = match IsInitialized {
+        let (initialized, data): (bool, T) = match IS_INITIALIZED {
             AccountState::Uninitialized => {
-                if **ctx.info().lamports.borrow() != 0 {
+                if !ctx.info().data.borrow().is_empty() {
                     return Err(SolitaireError::AlreadyInitialized(*ctx.info().key));
                 }
                 (false, T::default())
             }
             AccountState::Initialized => {
-                (true, T::try_from_slice(&mut *ctx.info().data.borrow_mut())?)
+                (true, T::try_from_slice(*ctx.info().data.borrow_mut())?)
             }
             AccountState::MaybeInitialized => {
-                if **ctx.info().lamports.borrow() == 0 {
+                if ctx.info().data.borrow().is_empty() {
                     (false, T::default())
                 } else {
-                    (true, T::try_from_slice(&mut *ctx.info().data.borrow_mut())?)
+                    (true, T::try_from_slice(*ctx.info().data.borrow_mut())?)
                 }
             }
         };
@@ -260,14 +227,6 @@ impl<
         }
 
         Ok(Data(Box::new(ctx.info().clone()), data))
-    }
-
-    fn deps() -> Vec<Pubkey> {
-        if IsInitialized == AccountState::Initialized {
-            return vec![];
-        }
-
-        vec![sysvar::rent::ID, system_program::ID]
     }
 
     fn persist(&self, program_id: &Pubkey) -> Result<()> {

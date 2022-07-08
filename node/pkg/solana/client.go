@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/p2p"
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
@@ -19,7 +21,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
-	"time"
 )
 
 type SolanaWatcher struct {
@@ -86,8 +87,9 @@ func (c ConsistencyLevel) Commitment() (rpc.CommitmentType, error) {
 }
 
 const (
-	postMessageInstructionNumAccounts = 9
-	postMessageInstructionID          = 0x01
+	postMessageInstructionNumAccounts  = 9
+	postMessageInstructionID           = 0x01
+	postMessageUnreliableInstructionID = 0x08
 )
 
 // PostMessageData represents the user-supplied, untrusted instruction data
@@ -386,7 +388,11 @@ func (s *SolanaWatcher) processInstruction(ctx context.Context, logger *zap.Logg
 		return false, nil
 	}
 
-	if inst.Data[0] != postMessageInstructionID {
+	if len(inst.Data) == 0 {
+		return false, nil
+	}
+
+	if inst.Data[0] != postMessageInstructionID && inst.Data[0] != postMessageUnreliableInstructionID {
 		return false, nil
 	}
 
@@ -482,7 +488,7 @@ func (s *SolanaWatcher) fetchMessageAccount(ctx context.Context, logger *zap.Log
 	}
 
 	data := info.Value.Data.GetBinary()
-	if string(data[:3]) != "msg" {
+	if string(data[:3]) != "msg" && string(data[:3]) != "msu" {
 		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 		solanaConnectionErrors.WithLabelValues(string(s.commitment), "bad_account_data").Inc()
 		logger.Error("account is not a message account",

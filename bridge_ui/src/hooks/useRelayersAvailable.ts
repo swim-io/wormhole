@@ -7,7 +7,7 @@ import { DataWrapper } from "../store/helpers";
 import { selectRelayerTokenInfo } from "../store/selectors";
 import {
   errorRelayerTokenInfo,
-  fetchTerraTokenMap,
+  fetchRelayerTokenInfo,
   receiveRelayerTokenInfo,
 } from "../store/tokenSlice";
 import { RELAYER_INFO_URL } from "../utils/consts";
@@ -21,16 +21,30 @@ export type Relayer = {
   name?: string;
   url?: string;
 };
+export type FeeScheduleEntryFlat = {
+  type: "flat";
+  feeUsd: number;
+};
+export type FeeScheduleEntryPercent = {
+  type: "percent";
+  feePercent: number;
+  gasEstimate: number;
+};
+export type FeeSchedule = {
+  // ChainId as a string
+  [key: string]: FeeScheduleEntryFlat | FeeScheduleEntryPercent;
+};
 export type RelayerTokenInfo = {
   supportedTokens?: RelayToken[];
   relayers?: Relayer[];
+  feeSchedule?: FeeSchedule;
 };
 
 const useRelayersAvailable = (
   shouldFire: boolean
 ): DataWrapper<RelayerTokenInfo> => {
   const relayerTokenInfo = useSelector(selectRelayerTokenInfo);
-  console.log("relayerTokenInfo", relayerTokenInfo);
+  // console.log("relayerTokenInfo", relayerTokenInfo);
   const dispatch = useDispatch();
   const internalShouldFire =
     shouldFire &&
@@ -47,14 +61,14 @@ const useRelayersAvailable = (
 };
 
 const getRelayersAvailable = (dispatch: Dispatch) => {
-  dispatch(fetchTerraTokenMap());
+  dispatch(fetchRelayerTokenInfo());
   axios.get(RELAYER_INFO_URL).then(
     (response) => {
       dispatch(receiveRelayerTokenInfo(response.data as RelayerTokenInfo));
     },
     (error) => {
       dispatch(
-        errorRelayerTokenInfo("Failed to retrieve the Terra Token List.")
+        errorRelayerTokenInfo("Failed to retrieve the relayer token info.")
       );
     }
   );

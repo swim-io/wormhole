@@ -1,15 +1,21 @@
 import {
   ChainId,
+  CHAIN_ID_ALGORAND,
+  CHAIN_ID_KLAYTN,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
+  getEmitterAddressAlgorand,
   getEmitterAddressEth,
   getEmitterAddressSolana,
   getEmitterAddressTerra,
   hexToUint8Array,
   isEVMChain,
+  isTerraChain,
+  parseSequenceFromLogAlgorand,
   parseSequenceFromLogEth,
   parseSequenceFromLogSolana,
   parseSequenceFromLogTerra,
+  TerraChainId,
+  transferFromAlgorand,
   transferFromEth,
   transferFromEthNative,
   transferFromSolana,
@@ -24,11 +30,13 @@ import {
   ConnectedWallet,
   useConnectedWallet,
 } from "@terra-money/wallet-provider";
+import algosdk from "algosdk";
 import { Signer } from "ethers";
 import { parseUnits, zeroPad } from "ethers/lib/utils";
 import { useSnackbar } from "notistack";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useAlgorandContext } from "../contexts/AlgorandWalletContext";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
 import {
@@ -50,19 +58,88 @@ import {
   setSignedVAAHex,
   setTransferTx,
 } from "../store/transferSlice";
+import { signSendAndConfirmAlgorand } from "../utils/algorand";
 import {
+  ALGORAND_BRIDGE_ID,
+  ALGORAND_HOST,
+  ALGORAND_TOKEN_BRIDGE_ID,
   getBridgeAddressForChain,
   getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
 } from "../utils/consts";
 import { getSignedVAAWithRetry } from "../utils/getSignedVAAWithRetry";
 import parseError from "../utils/parseError";
 import { signSendAndConfirm } from "../utils/solana";
 import { postWithFees, waitForTerraExecution } from "../utils/terra";
 import useTransferTargetAddressHex from "./useTransferTargetAddress";
+
+async function algo(
+  dispatch: any,
+  enqueueSnackbar: any,
+  senderAddr: string,
+  tokenAddress: string,
+  decimals: number,
+  amount: string,
+  recipientChain: ChainId,
+  recipientAddress: Uint8Array,
+  chainId: ChainId,
+  relayerFee?: string
+) {
+  dispatch(setIsSending(true));
+  try {
+    const baseAmountParsed = parseUnits(amount, decimals);
+    const feeParsed = parseUnits(relayerFee || "0", decimals);
+    const transferAmountParsed = baseAmountParsed.add(feeParsed);
+    const algodClient = new algosdk.Algodv2(
+      ALGORAND_HOST.algodToken,
+      ALGORAND_HOST.algodServer,
+      ALGORAND_HOST.algodPort
+    );
+    const txs = await transferFromAlgorand(
+      algodClient,
+      ALGORAND_TOKEN_BRIDGE_ID,
+      ALGORAND_BRIDGE_ID,
+      senderAddr,
+      BigInt(tokenAddress),
+      transferAmountParsed.toBigInt(),
+      uint8ArrayToHex(recipientAddress),
+      recipientChain,
+      feeParsed.toBigInt()
+    );
+    const result = await signSendAndConfirmAlgorand(algodClient, txs);
+    const sequence = parseSequenceFromLogAlgorand(result);
+    dispatch(
+      setTransferTx({
+        id: txs[txs.length - 1].tx.txID(),
+        block: result["confirmed-round"],
+      })
+    );
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Transaction confirmed</Alert>,
+    });
+    const emitterAddress = getEmitterAddressAlgorand(ALGORAND_TOKEN_BRIDGE_ID);
+    enqueueSnackbar(null, {
+      content: <Alert severity="info">Fetching VAA</Alert>,
+    });
+    const { vaaBytes } = await getSignedVAAWithRetry(
+      chainId,
+      emitterAddress,
+      sequence
+    );
+    dispatch(setSignedVAAHex(uint8ArrayToHex(vaaBytes)));
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Fetched Signed VAA</Alert>,
+    });
+  } catch (e) {
+    console.error(e);
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
+    dispatch(setIsSending(false));
+  }
+}
 
 async function evm(
   dispatch: any,
@@ -90,6 +167,11 @@ async function evm(
       "total",
       transferAmountParsed
     );
+    // Klaytn requires specifying gasPrice
+    const overrides =
+      chainId === CHAIN_ID_KLAYTN
+        ? { gasPrice: (await signer.getGasPrice()).toString() }
+        : {};
     const receipt = isNative
       ? await transferFromEthNative(
           getTokenBridgeAddressForChain(chainId),
@@ -97,7 +179,8 @@ async function evm(
           transferAmountParsed,
           recipientChain,
           recipientAddress,
-          feeParsed
+          feeParsed,
+          overrides
         )
       : await transferFromEth(
           getTokenBridgeAddressForChain(chainId),
@@ -106,7 +189,8 @@ async function evm(
           transferAmountParsed,
           recipientChain,
           recipientAddress,
-          feeParsed
+          feeParsed,
+          overrides
         );
     dispatch(
       setTransferTx({ id: receipt.transactionHash, block: receipt.blockNumber })
@@ -239,6 +323,7 @@ async function terra(
   targetChain: ChainId,
   targetAddress: Uint8Array,
   feeDenom: string,
+  chainId: TerraChainId,
   relayerFee?: string
 ) {
   dispatch(setIsSending(true));
@@ -246,9 +331,10 @@ async function terra(
     const baseAmountParsed = parseUnits(amount, decimals);
     const feeParsed = parseUnits(relayerFee || "0", decimals);
     const transferAmountParsed = baseAmountParsed.add(feeParsed);
+    const tokenBridgeAddress = getTokenBridgeAddressForChain(chainId);
     const msgs = await transferFromTerra(
       wallet.terraAddress,
-      TERRA_TOKEN_BRIDGE_ADDRESS,
+      tokenBridgeAddress,
       asset,
       transferAmountParsed.toString(),
       targetChain,
@@ -260,10 +346,11 @@ async function terra(
       wallet,
       msgs,
       "Wormhole - Initiate Transfer",
-      [feeDenom]
+      [feeDenom],
+      chainId
     );
 
-    const info = await waitForTerraExecution(result);
+    const info = await waitForTerraExecution(result, chainId);
     dispatch(setTransferTx({ id: info.txhash, block: info.height }));
     enqueueSnackbar(null, {
       content: <Alert severity="success">Transaction confirmed</Alert>,
@@ -272,14 +359,12 @@ async function terra(
     if (!sequence) {
       throw new Error("Sequence not found");
     }
-    const emitterAddress = await getEmitterAddressTerra(
-      TERRA_TOKEN_BRIDGE_ADDRESS
-    );
+    const emitterAddress = await getEmitterAddressTerra(tokenBridgeAddress);
     enqueueSnackbar(null, {
       content: <Alert severity="info">Fetching VAA</Alert>,
     });
     const { vaaBytes } = await getSignedVAAWithRetry(
-      CHAIN_ID_TERRA,
+      chainId,
       emitterAddress,
       sequence
     );
@@ -314,6 +399,7 @@ export function useHandleTransfer() {
   const solPK = solanaWallet?.publicKey;
   const terraWallet = useConnectedWallet();
   const terraFeeDenom = useSelector(selectTerraFeeDenom);
+  const { accounts: algoAccounts } = useAlgorandContext();
   const sourceParsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
@@ -373,7 +459,7 @@ export function useHandleTransfer() {
         relayerFee
       );
     } else if (
-      sourceChain === CHAIN_ID_TERRA &&
+      isTerraChain(sourceChain) &&
       !!terraWallet &&
       !!sourceAsset &&
       decimals !== undefined &&
@@ -389,6 +475,26 @@ export function useHandleTransfer() {
         targetChain,
         targetAddress,
         terraFeeDenom,
+        sourceChain,
+        relayerFee
+      );
+    } else if (
+      sourceChain === CHAIN_ID_ALGORAND &&
+      algoAccounts[0] &&
+      !!sourceAsset &&
+      decimals !== undefined &&
+      !!targetAddress
+    ) {
+      algo(
+        dispatch,
+        enqueueSnackbar,
+        algoAccounts[0].address,
+        sourceAsset,
+        decimals,
+        amount,
+        targetChain,
+        targetAddress,
+        sourceChain,
         relayerFee
       );
     } else {
@@ -412,6 +518,7 @@ export function useHandleTransfer() {
     originChain,
     isNative,
     terraFeeDenom,
+    algoAccounts,
   ]);
   return useMemo(
     () => ({

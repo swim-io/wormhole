@@ -1,9 +1,10 @@
 import {
-  ChainId,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
   CHAIN_ID_FANTOM,
+  CHAIN_ID_KLAYTN,
+  CHAIN_ID_NEON,
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   MockWETH9__factory,
@@ -26,6 +27,8 @@ import avaxIcon from "../icons/avax.svg";
 import bnbIcon from "../icons/bnb.svg";
 import ethIcon from "../icons/eth.svg";
 import fantomIcon from "../icons/fantom.svg";
+import klaytnIcon from "../icons/klaytn.svg";
+import neonIcon from "../icons/neon.svg";
 import oasisIcon from "../icons/oasis-network-rose-logo.svg";
 import polygonIcon from "../icons/polygon.svg";
 import { COLORS } from "../muiTheme";
@@ -45,8 +48,12 @@ import {
   WETH_DECIMALS,
   WFTM_ADDRESS,
   WFTM_DECIMALS,
+  WKLAY_ADDRESS,
+  WKLAY_DECIMALS,
   WMATIC_ADDRESS,
   WMATIC_DECIMALS,
+  WNEON_ADDRESS,
+  WNEON_DECIMALS,
   WROSE_ADDRESS,
   WROSE_DECIMALS,
 } from "../utils/consts";
@@ -125,7 +132,21 @@ const supportedTokens = {
     address: WFTM_ADDRESS,
     decimals: WFTM_DECIMALS,
   },
-};
+  [CHAIN_ID_KLAYTN]: {
+    symbol: "WKLAY",
+    icon: klaytnIcon,
+    address: WKLAY_ADDRESS,
+    decimals: WKLAY_DECIMALS,
+  },
+  [CHAIN_ID_NEON]: {
+    symbol: "WNEON",
+    icon: neonIcon,
+    address: WNEON_ADDRESS,
+    decimals: WNEON_DECIMALS,
+  },
+} as const;
+
+type SupportedChain = keyof typeof supportedTokens;
 
 interface BalancesInfo {
   native: ethers.BigNumber;
@@ -134,7 +155,9 @@ interface BalancesInfo {
 
 function UnwrapNative() {
   const classes = useStyles();
-  const [selectedChainId, setSelectedChainId] = useState<ChainId>(CHAIN_ID_ETH);
+  const [selectedChainId, setSelectedChainId] = useState<SupportedChain>(
+    CHAIN_ID_ETH as SupportedChain
+  );
   const [balances, setBalances] = useState<DataWrapper<BalancesInfo>>(
     getEmptyDataWrapper()
   );
@@ -144,7 +167,7 @@ function UnwrapNative() {
   const { signer } = useEthereumProvider();
   const { isReady, statusMessage } = useIsWalletReady(selectedChainId);
   const handleSelect = useCallback((event) => {
-    setSelectedChainId(parseInt(event.target.value) as ChainId);
+    setSelectedChainId(parseInt(event.target.value) as SupportedChain);
   }, []);
   useEffect(() => {
     setBalances(getEmptyDataWrapper());
@@ -215,7 +238,7 @@ function UnwrapNative() {
           Unwrap (withdraw) native tokens from their wrapped form (e.g. WETH
           &rarr; ETH)
         </Typography>
-        <EthereumSignerKey />
+        <EthereumSignerKey chainId={selectedChainId} />
         <TextField
           select
           value={selectedChainId}

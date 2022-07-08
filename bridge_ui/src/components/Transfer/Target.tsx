@@ -141,6 +141,7 @@ function Target() {
                   tokenName={tokenName}
                   logo={logo}
                   variant="h6"
+                  isAsset
                 />
                 {`(Amount: ${transferAmount})`}
               </Typography>
@@ -167,12 +168,6 @@ function Target() {
           setAssociatedAccountExists={setAssociatedAccountExists}
         />
       ) : null}
-      {/* <Alert severity="info" variant="outlined" className={classes.alert}>
-        <Typography>
-          You will have to pay transaction fees on{" "}
-          {CHAINS_BY_ID[targetChain].name} to redeem your tokens.
-        </Typography>
-      </Alert> */}
       {isEVMChain(targetChain) && !isReady ? null : <FeeMethodSelector />}
       <LowBalanceWarning chainId={targetChain} />
       {targetChain === CHAIN_ID_SOLANA && CLUSTER === "mainnet" && (

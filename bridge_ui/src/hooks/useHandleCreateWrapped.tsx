@@ -1,14 +1,17 @@
 import {
   ChainId,
   CHAIN_ID_ACALA,
+  CHAIN_ID_ALGORAND,
   CHAIN_ID_KARURA,
+  CHAIN_ID_KLAYTN,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
+  createWrappedOnAlgorand,
   createWrappedOnEth,
   createWrappedOnSolana,
   createWrappedOnTerra,
   isEVMChain,
-  postVaaSolanaWithRetry,
+  isTerraChain,
+  TerraChainId,
   updateWrappedOnEth,
   updateWrappedOnSolana,
   updateWrappedOnTerra,
@@ -20,10 +23,12 @@ import {
   ConnectedWallet,
   useConnectedWallet,
 } from "@terra-money/wallet-provider";
+import algosdk from "algosdk";
 import { Signer } from "ethers";
 import { useSnackbar } from "notistack";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useAlgorandContext } from "../contexts/AlgorandWalletContext";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
 import { setCreateTx, setIsCreating } from "../store/attestSlice";
@@ -32,21 +37,63 @@ import {
   selectAttestTargetChain,
   selectTerraFeeDenom,
 } from "../store/selectors";
+import { signSendAndConfirmAlgorand } from "../utils/algorand";
 import {
   ACALA_HOST,
+  ALGORAND_BRIDGE_ID,
+  ALGORAND_HOST,
+  ALGORAND_TOKEN_BRIDGE_ID,
   getTokenBridgeAddressForChain,
   KARURA_HOST,
   MAX_VAA_UPLOAD_RETRIES_SOLANA,
   SOLANA_HOST,
   SOL_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
 } from "../utils/consts";
 import { getKaruraGasParams } from "../utils/karura";
 import parseError from "../utils/parseError";
+import { postVaaWithRetry } from "../utils/postVaa";
 import { signSendAndConfirm } from "../utils/solana";
 import { postWithFees } from "../utils/terra";
 import useAttestSignedVAA from "./useAttestSignedVAA";
+
+async function algo(
+  dispatch: any,
+  enqueueSnackbar: any,
+  senderAddr: string,
+  signedVAA: Uint8Array
+) {
+  dispatch(setIsCreating(true));
+  try {
+    const algodClient = new algosdk.Algodv2(
+      ALGORAND_HOST.algodToken,
+      ALGORAND_HOST.algodServer,
+      ALGORAND_HOST.algodPort
+    );
+    const txs = await createWrappedOnAlgorand(
+      algodClient,
+      ALGORAND_TOKEN_BRIDGE_ID,
+      ALGORAND_BRIDGE_ID,
+      senderAddr,
+      signedVAA
+    );
+    const result = await signSendAndConfirmAlgorand(algodClient, txs);
+    dispatch(
+      setCreateTx({
+        id: txs[txs.length - 1].tx.txID(),
+        block: result["confirmed-round"],
+      })
+    );
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Transaction confirmed</Alert>,
+    });
+  } catch (e) {
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
+    dispatch(setIsCreating(false));
+  }
+}
 
 async function evm(
   dispatch: any,
@@ -59,11 +106,14 @@ async function evm(
   dispatch(setIsCreating(true));
   try {
     // Karura and Acala need gas params for contract deploys
+    // Klaytn requires specifying gasPrice
     const overrides =
       chainId === CHAIN_ID_KARURA
         ? await getKaruraGasParams(KARURA_HOST)
         : chainId === CHAIN_ID_ACALA
         ? await getKaruraGasParams(ACALA_HOST)
+        : chainId === CHAIN_ID_KLAYTN
+        ? { gasPrice: (await signer.getGasPrice()).toString() }
         : {};
     const receipt = shouldUpdate
       ? await updateWrappedOnEth(
@@ -106,7 +156,7 @@ async function solana(
       throw new Error("wallet.signTransaction is undefined");
     }
     const connection = new Connection(SOLANA_HOST, "confirmed");
-    await postVaaSolanaWithRetry(
+    await postVaaWithRetry(
       connection,
       wallet.signTransaction,
       SOL_BRIDGE_ADDRESS,
@@ -149,18 +199,20 @@ async function terra(
   wallet: ConnectedWallet,
   signedVAA: Uint8Array,
   shouldUpdate: boolean,
-  feeDenom: string
+  feeDenom: string,
+  chainId: TerraChainId
 ) {
   dispatch(setIsCreating(true));
+  const tokenBridgeAddress = getTokenBridgeAddressForChain(chainId);
   try {
     const msg = shouldUpdate
       ? await updateWrappedOnTerra(
-          TERRA_TOKEN_BRIDGE_ADDRESS,
+          tokenBridgeAddress,
           wallet.terraAddress,
           signedVAA
         )
       : await createWrappedOnTerra(
-          TERRA_TOKEN_BRIDGE_ADDRESS,
+          tokenBridgeAddress,
           wallet.terraAddress,
           signedVAA
         );
@@ -168,7 +220,8 @@ async function terra(
       wallet,
       [msg],
       "Wormhole - Create Wrapped",
-      [feeDenom]
+      [feeDenom],
+      chainId
     );
     dispatch(
       setCreateTx({ id: result.result.txhash, block: result.result.height })
@@ -195,6 +248,7 @@ export function useHandleCreateWrapped(shouldUpdate: boolean) {
   const { signer } = useEthereumProvider();
   const terraWallet = useConnectedWallet();
   const terraFeeDenom = useSelector(selectTerraFeeDenom);
+  const { accounts: algoAccounts } = useAlgorandContext();
   const handleCreateClick = useCallback(() => {
     if (isEVMChain(targetChain) && !!signer && !!signedVAA) {
       evm(
@@ -219,15 +273,22 @@ export function useHandleCreateWrapped(shouldUpdate: boolean) {
         signedVAA,
         shouldUpdate
       );
-    } else if (targetChain === CHAIN_ID_TERRA && !!terraWallet && !!signedVAA) {
+    } else if (isTerraChain(targetChain) && !!terraWallet && !!signedVAA) {
       terra(
         dispatch,
         enqueueSnackbar,
         terraWallet,
         signedVAA,
         shouldUpdate,
-        terraFeeDenom
+        terraFeeDenom,
+        targetChain
       );
+    } else if (
+      targetChain === CHAIN_ID_ALGORAND &&
+      algoAccounts[0] &&
+      !!signedVAA
+    ) {
+      algo(dispatch, enqueueSnackbar, algoAccounts[0]?.address, signedVAA);
     } else {
       // enqueueSnackbar(
       //   "Creating wrapped tokens on this chain is not yet supported",
@@ -247,6 +308,7 @@ export function useHandleCreateWrapped(shouldUpdate: boolean) {
     signer,
     shouldUpdate,
     terraFeeDenom,
+    algoAccounts,
   ]);
   return useMemo(
     () => ({

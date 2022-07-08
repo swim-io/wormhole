@@ -1,16 +1,24 @@
 import {
   ChainId,
+  CHAIN_ID_ALGORAND,
   CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
+  CHAIN_ID_CELO,
   CHAIN_ID_ETH,
   CHAIN_ID_ETHEREUM_ROPSTEN,
   CHAIN_ID_FANTOM,
+  CHAIN_ID_KLAYTN,
+  CHAIN_ID_KARURA,
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   isNativeDenom,
+  CHAIN_ID_ACALA,
+  isTerraChain,
+  CHAIN_ID_TERRA2,
+  TerraChainId,
 } from "@certusone/wormhole-sdk";
 import { Button, makeStyles, Tooltip, Typography } from "@material-ui/core";
 import { FileCopy, OpenInNew } from "@material-ui/icons";
@@ -67,6 +75,7 @@ export default function SmartAddress({
   noGutter,
   noUnderline,
   extraContent,
+  isAsset,
 }: {
   chainId: ChainId;
   parsedTokenAccount?: ParsedTokenAccount;
@@ -78,12 +87,13 @@ export default function SmartAddress({
   noGutter?: boolean;
   noUnderline?: boolean;
   extraContent?: ReactChild;
+  isAsset?: boolean;
 }) {
   const classes = useStyles();
-  const isNativeTerra = chainId === CHAIN_ID_TERRA && isNativeDenom(address);
+  const isNativeTerra = isTerraChain(chainId) && isNativeDenom(address);
   const useableAddress = parsedTokenAccount?.mintKey || address || "";
   const useableSymbol = isNativeTerra
-    ? formatNativeDenom(address)
+    ? formatNativeDenom(address || "", chainId as TerraChainId)
     : parsedTokenAccount?.symbol || symbol || "";
   // const useableLogo = logo || isNativeTerra ? getNativeTerraIcon(useableSymbol) : null
   const isNative = parsedTokenAccount?.isNativeAsset || isNativeTerra || false;
@@ -99,39 +109,63 @@ export default function SmartAddress({
   const explorerAddress = isNative
     ? null
     : chainId === CHAIN_ID_ETH
-    ? `https://${
-        CLUSTER === "testnet" ? "goerli." : ""
-      }etherscan.io/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "goerli." : ""}etherscan.io/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_ETHEREUM_ROPSTEN
-    ? `https://${
-        CLUSTER === "testnet" ? "ropsten." : ""
-      }etherscan.io/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "ropsten." : ""}etherscan.io/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_BSC
-    ? `https://${
-        CLUSTER === "testnet" ? "testnet." : ""
-      }bscscan.com/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "testnet." : ""}bscscan.com/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_POLYGON
-    ? `https://${
-        CLUSTER === "testnet" ? "mumbai." : ""
-      }polygonscan.com/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "mumbai." : ""}polygonscan.com/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_AVAX
-    ? `https://${
-        CLUSTER === "testnet" ? "testnet." : ""
-      }snowtrace.io/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "testnet." : ""}snowtrace.io/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_OASIS
     ? `https://${
         CLUSTER === "testnet" ? "testnet." : ""
-      }explorer.emerald.oasis.dev/address/${useableAddress}`
+      }explorer.emerald.oasis.dev/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_AURORA
-    ? `https://${
-        CLUSTER === "testnet" ? "testnet." : ""
-      }aurorascan.dev/address/${useableAddress}`
+    ? `https://${CLUSTER === "testnet" ? "testnet." : ""}aurorascan.dev/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
     : chainId === CHAIN_ID_FANTOM
+    ? `https://${CLUSTER === "testnet" ? "testnet." : ""}ftmscan.com/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
+    : chainId === CHAIN_ID_KLAYTN
+    ? `https://${CLUSTER === "testnet" ? "baobab." : ""}scope.klaytn.com/${
+        isAsset ? "token" : "address"
+      }/${useableAddress}`
+    : chainId === CHAIN_ID_CELO
     ? `https://${
-        CLUSTER === "testnet" ? "testnet." : ""
-      }ftmscan.com/address/${useableAddress}`
+        CLUSTER === "testnet"
+          ? "alfajores-blockscout.celo-testnet.org"
+          : "explorer.celo.org"
+      }/address/${useableAddress}`
+    : chainId === CHAIN_ID_KARURA
+    ? `https://${
+        CLUSTER === "testnet"
+          ? "blockscout.karura-dev.aca-dev.network"
+          : "blockscout.karura.network"
+      }/${isAsset ? "token" : "address"}/${useableAddress}`
+    : chainId === CHAIN_ID_ACALA
+    ? `https://${
+        CLUSTER === "testnet"
+          ? "blockscout.acala-dev.aca-dev.network"
+          : "blockscout.acala.network"
+      }/${isAsset ? "token" : "address"}/${useableAddress}`
     : chainId === CHAIN_ID_SOLANA
-    ? `https://explorer.solana.com/address/${useableAddress}${
+    ? `https://solscan.io/address/${useableAddress}${
         CLUSTER === "testnet"
           ? "?cluster=devnet"
           : CLUSTER === "devnet"
@@ -139,13 +173,21 @@ export default function SmartAddress({
           : ""
       }`
     : chainId === CHAIN_ID_TERRA
+    ? CLUSTER === "mainnet"
+      ? `https://finder.terra.money/columbus-5/address/${useableAddress}`
+      : undefined
+    : chainId === CHAIN_ID_TERRA2
     ? `https://finder.terra.money/${
         CLUSTER === "devnet"
           ? "localterra"
           : CLUSTER === "testnet"
-          ? "bombay-12"
-          : "columbus-5"
+          ? "pisco-1"
+          : "phoenix-1"
       }/address/${useableAddress}`
+    : chainId === CHAIN_ID_ALGORAND
+    ? `https://${CLUSTER === "testnet" ? "testnet." : ""}algoexplorer.io/${
+        isAsset ? "asset" : "address"
+      }/${useableAddress}`
     : undefined;
   const explorerName = getExplorerName(chainId);
 

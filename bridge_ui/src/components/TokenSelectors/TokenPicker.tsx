@@ -1,5 +1,4 @@
 import { ChainId } from "@certusone/wormhole-sdk";
-import { BigNumber } from "@ethersproject/bignumber";
 import {
   Button,
   CircularProgress,
@@ -26,7 +25,12 @@ import { useSelector } from "react-redux";
 import useMarketsMap from "../../hooks/useMarketsMap";
 import { NFTParsedTokenAccount } from "../../store/nftSlice";
 import { selectTransferTargetChain } from "../../store/selectors";
-import { AVAILABLE_MARKETS_URL, CHAINS_BY_ID } from "../../utils/consts";
+import { balancePretty } from "../../utils/balancePretty";
+import {
+  AVAILABLE_MARKETS_URL,
+  CHAINS_BY_ID,
+  getIsTokenTransferDisabled,
+} from "../../utils/consts";
 import { shortenAddress } from "../../utils/solana";
 import NFTViewer from "./NFTViewer";
 
@@ -115,18 +119,6 @@ const useStyles = makeStyles((theme) =>
     },
   })
 );
-
-export const balancePretty = (uiString: string) => {
-  const numberString = uiString.split(".")[0];
-  const bignum = BigNumber.from(numberString);
-  if (bignum.gte(1000000)) {
-    return numberString.substring(0, numberString.length - 6) + " M";
-  } else if (uiString.length > 8) {
-    return uiString.substr(0, 8);
-  } else {
-    return uiString;
-  }
-};
 
 const noClickThrough = (e: any) => {
   e.stopPropagation();
@@ -259,7 +251,7 @@ export default function TokenPicker({
     account: NFTParsedTokenAccount;
   }) => JSX.Element;
   onChange: (newValue: NFTParsedTokenAccount | null) => Promise<void>;
-  isValidAddress?: (address: string) => boolean;
+  isValidAddress?: (address: string, chainId: ChainId) => boolean;
   getAddress?: (
     address: string,
     tokenId?: string
@@ -426,7 +418,7 @@ export default function TokenPicker({
     }
     setLoadingError("");
     let cancelled = false;
-    if (isValidAddress(holderString)) {
+    if (isValidAddress(holderString, chainId)) {
       const option = localFind(holderString, tokenIdHolderString);
       if (option) {
         handleSelectOption(option);
@@ -465,6 +457,7 @@ export default function TokenPicker({
     localFind,
     tokenIdHolderString,
     useTokenId,
+    chainId,
   ]);
 
   //TODO reset button
@@ -568,6 +561,11 @@ export default function TokenPicker({
                         option.mintKey +
                         (option.tokenId || "")
                       }
+                      disabled={getIsTokenTransferDisabled(
+                        chainId,
+                        targetChain,
+                        option.mintKey
+                      )}
                     >
                       <RenderOption account={option} />
                     </ListItem>
@@ -592,6 +590,11 @@ export default function TokenPicker({
                   key={
                     option.publicKey + option.mintKey + (option.tokenId || "")
                   }
+                  disabled={getIsTokenTransferDisabled(
+                    chainId,
+                    targetChain,
+                    option.mintKey
+                  )}
                 >
                   <RenderOption account={option} />
                 </ListItem>

@@ -41,6 +41,7 @@ type TransferData struct {
 	DestinationChain string
 	Notional         float64
 	TokenPrice       float64
+	TokenDecimals    int
 }
 
 // finds all the TokenTransfer rows within the specified period
@@ -77,6 +78,8 @@ func fetchTransferRowsInInterval(tbl *bigtable.Table, ctx context.Context, prefi
 					t.TokenAddress = string(item.Value)
 				case "TokenTransferDetails:CoinGeckoCoinId":
 					t.CoinGeckoCoinId = string(item.Value)
+				case "TokenTransferDetails:Decimals":
+					t.TokenDecimals, _ = strconv.Atoi(string(item.Value))
 				}
 			}
 
@@ -109,7 +112,7 @@ func fetchTransferRowsInInterval(tbl *bigtable.Table, ctx context.Context, prefi
 			),
 			bigtable.ChainFilters(
 				bigtable.FamilyFilter(fmt.Sprintf("%v|%v", columnFamilies[2], columnFamilies[5])),
-				bigtable.ColumnFilter("Amount|NotionalUSD|OriginSymbol|OriginName|OriginChain|TargetChain|CoinGeckoCoinId|OriginTokenAddress|TokenPriceUSD"),
+				bigtable.ColumnFilter("Amount|NotionalUSD|OriginSymbol|OriginName|OriginChain|TargetChain|CoinGeckoCoinId|OriginTokenAddress|TokenPriceUSD|Decimals"),
 				bigtable.LatestNFilter(1),
 			),
 			bigtable.BlockAllFilter(),
@@ -190,6 +193,10 @@ func amountsTransferredToInInterval(tbl *bigtable.Table, ctx context.Context, pr
 
 			// iterate through the rows and increment the count
 			for _, row := range queryResult {
+				if _, ok := tokensToSkip[row.TokenAddress]; ok {
+					// skip blacklisted token
+					continue
+				}
 				if _, ok := results[dateStr][row.DestinationChain]; !ok {
 					results[dateStr][row.DestinationChain] = map[string]float64{"*": 0}
 				}
@@ -283,6 +290,10 @@ func transfersToForInterval(tbl *bigtable.Table, ctx context.Context, prefix str
 
 	// iterate through the rows and increment the count for each index
 	for _, row := range queryResults {
+		if _, ok := tokensToSkip[row.TokenAddress]; ok {
+			// skip blacklisted token
+			continue
+		}
 		if _, ok := result[row.DestinationChain]; !ok {
 			result[row.DestinationChain] = map[string]float64{"*": 0}
 		}

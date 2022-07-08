@@ -1,11 +1,14 @@
 import {
   ChainId,
-  CHAIN_ID_TERRA,
+  CHAIN_ID_ALGORAND,
+  CHAIN_ID_SOLANA,
+  getForeignAssetAlgorand,
   getForeignAssetEth,
   getForeignAssetSolana,
   getForeignAssetTerra,
   hexToUint8Array,
   isEVMChain,
+  isTerraChain,
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { Connection } from "@solana/web3.js";
@@ -15,14 +18,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { DataWrapper } from "../store/helpers";
 import {
+  ALGORAND_HOST,
+  ALGORAND_TOKEN_BRIDGE_ID,
   getEvmChainId,
   getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_HOST,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
+  getTerraConfig,
 } from "../utils/consts";
 import useIsWalletReady from "./useIsWalletReady";
+import { Algodv2 } from "algosdk";
 
 export type ForeignAssetInfo = {
   doesExist: boolean;
@@ -99,7 +104,9 @@ function useFetchForeignAsset(
     let cancelled = false;
     setIsLoading(true);
     try {
-      const getterFunc: () => Promise<string | null> = isEVMChain(foreignChain)
+      const getterFunc: () => Promise<string | bigint | null> = isEVMChain(
+        foreignChain
+      )
         ? () =>
             getForeignAssetEth(
               getTokenBridgeAddressForChain(foreignChain),
@@ -107,17 +114,18 @@ function useFetchForeignAsset(
               originChain,
               hexToUint8Array(originAssetHex)
             )
-        : foreignChain === CHAIN_ID_TERRA
+        : isTerraChain(foreignChain)
         ? () => {
-            const lcd = new LCDClient(TERRA_HOST);
+            const lcd = new LCDClient(getTerraConfig(foreignChain));
             return getForeignAssetTerra(
-              TERRA_TOKEN_BRIDGE_ADDRESS,
+              getTokenBridgeAddressForChain(foreignChain),
               lcd,
               originChain,
               hexToUint8Array(originAssetHex)
             );
           }
-        : () => {
+        : foreignChain === CHAIN_ID_SOLANA
+        ? () => {
             const connection = new Connection(SOLANA_HOST, "confirmed");
             return getForeignAssetSolana(
               connection,
@@ -125,7 +133,22 @@ function useFetchForeignAsset(
               originChain,
               hexToUint8Array(originAssetHex)
             );
-          };
+          }
+        : foreignChain === CHAIN_ID_ALGORAND
+        ? () => {
+            const algodClient = new Algodv2(
+              ALGORAND_HOST.algodToken,
+              ALGORAND_HOST.algodServer,
+              ALGORAND_HOST.algodPort
+            );
+            return getForeignAssetAlgorand(
+              algodClient,
+              ALGORAND_TOKEN_BRIDGE_ID,
+              originChain,
+              originAssetHex
+            );
+          }
+        : () => Promise.resolve(null);
 
       getterFunc()
         .then((result) => {
@@ -140,7 +163,7 @@ function useFetchForeignAsset(
               setArgs();
               setDoesExist(true);
               setIsLoading(false);
-              setAssetAddress(result);
+              setAssetAddress(result.toString());
             } else {
               setArgs();
               setDoesExist(false);

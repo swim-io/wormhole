@@ -15,32 +15,19 @@ use crate::{
     messages::PayloadTransfer,
     types::*,
     TokenBridgeError::*,
+    INVALID_VAAS,
 };
 use bridge::{
     vaa::ClaimableVAA,
     CHAIN_ID_SOLANA,
 };
-use solana_program::{
-    account_info::AccountInfo,
-    program::invoke_signed,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-};
+use solana_program::account_info::AccountInfo;
 use solitaire::{
     processors::seeded::{
         invoke_seeded,
         Seeded,
     },
-    CreationLamports::Exempt,
     *,
-};
-use spl_token::state::{
-    Account,
-    Mint,
-};
-use std::ops::{
-    Deref,
-    DerefMut,
 };
 
 #[derive(FromAccounts)]
@@ -76,16 +63,13 @@ impl<'a> From<&CompleteNative<'a>> for CustodyAccountDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for CompleteNative<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CompleteNativeData {}
 
 pub fn complete_native(
     ctx: &ExecutionContext,
     accs: &mut CompleteNative,
-    data: CompleteNativeData,
+    _data: CompleteNativeData,
 ) -> Result<()> {
     // Verify the chain registration
     let derivation_data: EndpointDerivationData = (&*accs).into();
@@ -123,6 +107,9 @@ pub fn complete_native(
     }
     if accs.vaa.to != accs.to.info().key.to_bytes() {
         return Err(InvalidRecipient.into());
+    }
+    if INVALID_VAAS.contains(&&*accs.vaa.message.info().key.to_string()) {
+        return Err(InvalidVAA.into());
     }
 
     // Prevent vaa double signing
@@ -199,16 +186,13 @@ impl<'a> From<&CompleteWrapped<'a>> for WrappedDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for CompleteWrapped<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct CompleteWrappedData {}
 
 pub fn complete_wrapped(
     ctx: &ExecutionContext,
     accs: &mut CompleteWrapped,
-    data: CompleteWrappedData,
+    _data: CompleteWrappedData,
 ) -> Result<()> {
     // Verify the chain registration
     let derivation_data: EndpointDerivationData = (&*accs).into();
@@ -242,6 +226,9 @@ pub fn complete_wrapped(
     }
     if accs.vaa.to != accs.to.info().key.to_bytes() {
         return Err(InvalidRecipient.into());
+    }
+    if INVALID_VAAS.contains(&&*accs.vaa.message.info().key.to_string()) {
+        return Err(InvalidVAA.into());
     }
 
     accs.vaa.verify(ctx.program_id)?;

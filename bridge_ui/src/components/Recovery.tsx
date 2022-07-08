@@ -1,18 +1,27 @@
 import {
   ChainId,
+  CHAIN_ID_ACALA,
+  CHAIN_ID_ALGORAND,
+  CHAIN_ID_KARURA,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
+  CHAIN_ID_TERRA2,
+  getEmitterAddressAlgorand,
   getEmitterAddressEth,
   getEmitterAddressSolana,
   getEmitterAddressTerra,
+  hexToNativeAssetString,
   hexToNativeString,
   hexToUint8Array,
+  importCoreWasm,
   isEVMChain,
+  isTerraChain,
   parseNFTPayload,
+  parseSequenceFromLogAlgorand,
   parseSequenceFromLogEth,
   parseSequenceFromLogSolana,
   parseSequenceFromLogTerra,
   parseTransferPayload,
+  TerraChainId,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import {
@@ -33,6 +42,7 @@ import { ExpandMore } from "@material-ui/icons";
 import { Alert } from "@material-ui/lab";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
+import algosdk from "algosdk";
 import axios from "axios";
 import { ethers } from "ethers";
 import { useSnackbar } from "notistack";
@@ -40,12 +50,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useHistory, useLocation } from "react-router";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
+import { useAcalaRelayerInfo } from "../hooks/useAcalaRelayerInfo";
 import useIsWalletReady from "../hooks/useIsWalletReady";
 import useRelayersAvailable, { Relayer } from "../hooks/useRelayersAvailable";
 import { COLORS } from "../muiTheme";
 import { setRecoveryVaa as setRecoveryNFTVaa } from "../store/nftSlice";
 import { setRecoveryVaa } from "../store/transferSlice";
 import {
+  ALGORAND_HOST,
+  ALGORAND_TOKEN_BRIDGE_ID,
   CHAINS,
   CHAINS_BY_ID,
   CHAINS_WITH_NFT_SUPPORT,
@@ -56,12 +69,12 @@ import {
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_HOST,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
+  getTerraConfig,
   WORMHOLE_RPC_HOSTS,
 } from "../utils/consts";
 import { getSignedVAAWithRetry } from "../utils/getSignedVAAWithRetry";
 import parseError from "../utils/parseError";
+import { queryExternalId } from "../utils/terra";
 import ButtonWithLoader from "./ButtonWithLoader";
 import ChainSelect from "./ChainSelect";
 import KeyAndBalance from "./KeyAndBalance";
@@ -83,6 +96,51 @@ const useStyles = makeStyles((theme) => ({
     },
   },
 }));
+
+async function algo(tx: string, enqueueSnackbar: any) {
+  try {
+    const algodClient = new algosdk.Algodv2(
+      ALGORAND_HOST.algodToken,
+      ALGORAND_HOST.algodServer,
+      ALGORAND_HOST.algodPort
+    );
+    const pendingInfo = await algodClient
+      .pendingTransactionInformation(tx)
+      .do();
+    let confirmedTxInfo: Record<string, any> | undefined = undefined;
+    // This is the code from waitForConfirmation
+    if (pendingInfo !== undefined) {
+      if (
+        pendingInfo["confirmed-round"] !== null &&
+        pendingInfo["confirmed-round"] > 0
+      ) {
+        //Got the completed Transaction
+        confirmedTxInfo = pendingInfo;
+      }
+    }
+    if (!confirmedTxInfo) {
+      throw new Error("Transaction not found or not confirmed");
+    }
+    const sequence = parseSequenceFromLogAlgorand(confirmedTxInfo);
+    if (!sequence) {
+      throw new Error("Sequence not found");
+    }
+    const emitterAddress = getEmitterAddressAlgorand(ALGORAND_TOKEN_BRIDGE_ID);
+    const { vaaBytes } = await getSignedVAAWithRetry(
+      CHAIN_ID_ALGORAND,
+      emitterAddress,
+      sequence,
+      WORMHOLE_RPC_HOSTS.length
+    );
+    return { vaa: uint8ArrayToHex(vaaBytes), error: null };
+  } catch (e) {
+    console.error(e);
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
+    return { vaa: null, error: parseError(e) };
+  }
+}
 
 async function evm(
   provider: ethers.providers.Web3Provider,
@@ -145,19 +203,19 @@ async function solana(tx: string, enqueueSnackbar: any, nft: boolean) {
   }
 }
 
-async function terra(tx: string, enqueueSnackbar: any) {
+async function terra(tx: string, enqueueSnackbar: any, chainId: TerraChainId) {
   try {
-    const lcd = new LCDClient(TERRA_HOST);
+    const lcd = new LCDClient(getTerraConfig(chainId));
     const info = await lcd.tx.txInfo(tx);
     const sequence = parseSequenceFromLogTerra(info);
     if (!sequence) {
       throw new Error("Sequence not found");
     }
     const emitterAddress = await getEmitterAddressTerra(
-      TERRA_TOKEN_BRIDGE_ADDRESS
+      getTokenBridgeAddressForChain(chainId)
     );
     const { vaaBytes } = await getSignedVAAWithRetry(
-      CHAIN_ID_TERRA,
+      chainId,
       emitterAddress,
       sequence,
       WORMHOLE_RPC_HOSTS.length
@@ -260,6 +318,52 @@ function RelayerRecovery({
   );
 }
 
+function AcalaRelayerRecovery({
+  parsedPayload,
+  signedVaa,
+  onClick,
+  isNFT,
+}: {
+  parsedPayload: any;
+  signedVaa: string;
+  onClick: () => void;
+  isNFT: boolean;
+}) {
+  const classes = useStyles();
+  const originChain: ChainId = parsedPayload?.originChain;
+  const originAsset = parsedPayload?.originAddress;
+  const targetChain: ChainId = parsedPayload?.targetChain;
+  const amount =
+    parsedPayload && "amount" in parsedPayload
+      ? parsedPayload.amount.toString()
+      : "";
+  const shouldCheck =
+    parsedPayload &&
+    originChain &&
+    originAsset &&
+    signedVaa &&
+    targetChain &&
+    !isNFT &&
+    (targetChain === CHAIN_ID_ACALA || targetChain === CHAIN_ID_KARURA);
+  const acalaRelayerInfo = useAcalaRelayerInfo(
+    targetChain,
+    amount,
+    hexToNativeAssetString(originAsset, originChain),
+    false
+  );
+  const enabled = shouldCheck && acalaRelayerInfo.data?.shouldRelay;
+
+  return enabled ? (
+    <Alert variant="outlined" severity="info" className={classes.relayAlert}>
+      <Typography>
+        This transaction is eligible to be relayed by{" "}
+        {CHAINS_BY_ID[targetChain].name} &#127881;
+      </Typography>
+      <ButtonWithLoader onClick={onClick}>Request Relay</ButtonWithLoader>
+    </Alert>
+  ) : null;
+}
+
 export default function Recovery() {
   const classes = useStyles();
   const { push } = useHistory();
@@ -269,13 +373,14 @@ export default function Recovery() {
   const [type, setType] = useState("Token");
   const isNFT = type === "NFT";
   const [recoverySourceChain, setRecoverySourceChain] =
-    useState(CHAIN_ID_SOLANA);
+    useState<ChainId>(CHAIN_ID_SOLANA);
   const [recoverySourceTx, setRecoverySourceTx] = useState("");
   const [recoverySourceTxIsLoading, setRecoverySourceTxIsLoading] =
     useState(false);
   const [recoverySourceTxError, setRecoverySourceTxError] = useState("");
   const [recoverySignedVAA, setRecoverySignedVAA] = useState("");
   const [recoveryParsedVAA, setRecoveryParsedVAA] = useState<any>(null);
+  const [terra2TokenId, setTerra2TokenId] = useState("");
   const { isReady, statusMessage } = useIsWalletReady(recoverySourceChain);
   const walletConnectError =
     isEVMChain(recoverySourceChain) && !isReady ? statusMessage : "";
@@ -295,6 +400,21 @@ export default function Recovery() {
       return null;
     }
   }, [recoveryParsedVAA, isNFT]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (parsedPayload && parsedPayload.targetChain === CHAIN_ID_TERRA2) {
+      (async () => {
+        const tokenId = await queryExternalId(parsedPayload.originAddress);
+        if (!cancelled) {
+          setTerra2TokenId(tokenId || "");
+        }
+      })();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [parsedPayload]);
 
   const { search } = useLocation();
   const query = useMemo(() => new URLSearchParams(search), [search]);
@@ -365,11 +485,31 @@ export default function Recovery() {
             }
           }
         })();
-      } else if (recoverySourceChain === CHAIN_ID_TERRA) {
+      } else if (isTerraChain(recoverySourceChain)) {
+        setRecoverySourceTxError("");
+        setRecoverySourceTxIsLoading(true);
+        setTerra2TokenId("");
+        (async () => {
+          const { vaa, error } = await terra(
+            recoverySourceTx,
+            enqueueSnackbar,
+            recoverySourceChain
+          );
+          if (!cancelled) {
+            setRecoverySourceTxIsLoading(false);
+            if (vaa) {
+              setRecoverySignedVAA(vaa);
+            }
+            if (error) {
+              setRecoverySourceTxError(error);
+            }
+          }
+        })();
+      } else if (recoverySourceChain === CHAIN_ID_ALGORAND) {
         setRecoverySourceTxError("");
         setRecoverySourceTxIsLoading(true);
         (async () => {
-          const { vaa, error } = await terra(recoverySourceTx, enqueueSnackbar);
+          const { vaa, error } = await algo(recoverySourceTx, enqueueSnackbar);
           if (!cancelled) {
             setRecoverySourceTxIsLoading(false);
             if (vaa) {
@@ -417,9 +557,7 @@ export default function Recovery() {
     if (recoverySignedVAA) {
       (async () => {
         try {
-          const { parse_vaa } = await import(
-            "@certusone/wormhole-sdk/lib/esm/solana/core/bridge"
-          );
+          const { parse_vaa } = await importCoreWasm();
           const parsedVAA = parse_vaa(hexToUint8Array(recoverySignedVAA));
           if (!cancelled) {
             setRecoveryParsedVAA(parsedVAA);
@@ -550,6 +688,12 @@ export default function Recovery() {
           signedVaa={recoverySignedVAA}
           onClick={handleRecoverWithRelayerClick}
         />
+        <AcalaRelayerRecovery
+          parsedPayload={parsedPayload}
+          signedVaa={recoverySignedVAA}
+          onClick={handleRecoverWithRelayerClick}
+          isNFT={isNFT}
+        />
         <ButtonWithLoader
           onClick={handleRecoverClick}
           disabled={!enableRecovery}
@@ -640,6 +784,14 @@ export default function Recovery() {
                   fullWidth
                   margin="normal"
                 />
+                <TextField
+                  variant="outlined"
+                  label="Guardian Set"
+                  disabled
+                  value={recoveryParsedVAA?.guardian_set_index || ""}
+                  fullWidth
+                  margin="normal"
+                />
                 <Box my={4}>
                   <Divider />
                 </Box>
@@ -656,12 +808,14 @@ export default function Recovery() {
                   label="Origin Token Address"
                   disabled
                   value={
-                    (parsedPayload &&
-                      hexToNativeString(
-                        parsedPayload.originAddress,
-                        parsedPayload.originChain
-                      )) ||
-                    ""
+                    parsedPayload
+                      ? parsedPayload.targetChain === CHAIN_ID_TERRA2
+                        ? terra2TokenId
+                        : hexToNativeAssetString(
+                            parsedPayload.originAddress,
+                            parsedPayload.originChain
+                          ) || ""
+                      : ""
                   }
                   fullWidth
                   margin="normal"
@@ -706,8 +860,11 @@ export default function Recovery() {
                       variant="outlined"
                       label="Amount"
                       disabled
-                      // @ts-ignore
-                      value={parsedPayload?.amount.toString() || ""}
+                      value={
+                        parsedPayload && "amount" in parsedPayload
+                          ? parsedPayload.amount.toString()
+                          : ""
+                      }
                       fullWidth
                       margin="normal"
                     />
@@ -715,8 +872,11 @@ export default function Recovery() {
                       variant="outlined"
                       label="Relayer Fee"
                       disabled
-                      // @ts-ignore
-                      value={parsedPayload?.fee.toString() || ""}
+                      value={
+                        parsedPayload && "fee" in parsedPayload
+                          ? parsedPayload.fee.toString()
+                          : ""
+                      }
                       fullWidth
                       margin="normal"
                     />

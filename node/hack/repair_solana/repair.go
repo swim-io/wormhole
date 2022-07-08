@@ -5,6 +5,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/db"
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
@@ -14,11 +20,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
-	"log"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var (
@@ -128,16 +129,24 @@ func main() {
 				break
 			}
 
-			last := txs[len(txs)-1].Signature
+			var lastSeq, firstSeq uint64
 
-			_, lastSeq, err := fetchTxSeq(ctx, sr, last)
-			if err != nil {
-				log.Fatalf("fetch last tx seq: %v", err)
+			var last solana.Signature
+			for i := 0; lastSeq == 0; i-- {
+				log.Printf("lastSeq offset: %d", i)
+				last = txs[len(txs)-1+i].Signature
+				_, lastSeq, err = fetchTxSeq(ctx, sr, last)
+				if err != nil {
+					log.Fatalf("fetch last tx seq: %v", err)
+				}
 			}
 
-			_, firstSeq, err := fetchTxSeq(ctx, sr, txs[0].Signature)
-			if err != nil {
-				log.Fatalf("fetch first tx seq: %v", err)
+			for i := 0; firstSeq == 0; i++ {
+				log.Printf("firstSeq offset: %d", i)
+				_, firstSeq, err = fetchTxSeq(ctx, sr, txs[i].Signature)
+				if err != nil {
+					log.Fatalf("fetch first tx seq: %v", err)
+				}
 			}
 
 			log.Printf("fetched %d transactions, from %s (%d) to %s (%d)",
@@ -153,7 +162,7 @@ func main() {
 			}
 			for _, p := range msgs {
 				if p.Sequence > lastSeq && p.Sequence < firstSeq {
-					offset := firstSeq - p.Sequence
+					offset := firstSeq - p.Sequence - 10
 					log.Printf("repairing: %d (offset %d)", p.Sequence, offset)
 
 					var tx *rpc.TransactionWithMeta
@@ -161,6 +170,9 @@ func main() {
 					var err error
 
 					for {
+						if offset >= uint64(len(txs)) {
+							log.Fatalf("out of range at offset %d", offset)
+						}
 						tx, nseq, err = fetchTxSeq(ctx, sr, txs[offset].Signature)
 						if err != nil {
 							log.Fatalf("failed to fetch %s at offset %d: %v", txs[offset].Signature, offset, err)
@@ -172,8 +184,8 @@ func main() {
 							continue
 						}
 						if nseq != p.Sequence {
-							log.Printf("%d != %d, offset +%d", nseq, p.Sequence, nseq-p.Sequence)
-							offset += nseq - p.Sequence
+							offset += 1
+							log.Printf("%d != %d, delta +%d, offset +%d", nseq, p.Sequence, nseq-p.Sequence, offset)
 							time.Sleep(1 * time.Second)
 							continue
 						} else {

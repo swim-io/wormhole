@@ -23,7 +23,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use solana_program::pubkey::Pubkey;
+use solana_program::{
+    account_info::AccountInfo,
+    pubkey::Pubkey,
+};
 use solitaire::{
     processors::seeded::Seeded,
     trace,
@@ -76,7 +79,7 @@ pub trait SerializeGovernancePayload: SerializePayload {
         use byteorder::WriteBytesExt;
         let module = format!("{:\0>32}", Self::MODULE);
         let module = module.as_bytes();
-        c.write(&module)?;
+        c.write_all(module)?;
         c.write_u8(Self::ACTION)?;
         c.write_u16::<BigEndian>(CHAIN_ID_SOLANA)?;
         Ok(())
@@ -123,10 +126,6 @@ impl<'a, 'b: 'a, 'c, T: DeserializePayload> Peel<'a, 'b, 'c> for PayloadMessage<
         Ok(PayloadMessage(data, payload))
     }
 
-    fn deps() -> Vec<Pubkey> {
-        Data::<'b, PostedVAAData, { AccountState::Initialized }>::deps()
-    }
-
     fn persist(&self, program_id: &Pubkey) -> Result<()> {
         Data::persist(&self.0, program_id)
     }
@@ -142,6 +141,10 @@ impl<'b, T: DeserializePayload> Deref for PayloadMessage<'b, T> {
 impl<'b, T: DeserializePayload> PayloadMessage<'b, T> {
     pub fn meta(&self) -> &PostedVAAData {
         &self.0
+    }
+
+    pub fn info(&self) -> AccountInfo<'b> {
+        self.0.info().clone()
     }
 }
 
@@ -240,39 +243,49 @@ impl VAA {
 
     pub fn deserialize(data: &[u8]) -> std::result::Result<VAA, std::io::Error> {
         let mut rdr = Cursor::new(data);
-        let mut v = VAA::default();
 
-        v.version = rdr.read_u8()?;
-        v.guardian_set_index = rdr.read_u32::<BigEndian>()?;
+        let version = rdr.read_u8()?;
+        let guardian_set_index = rdr.read_u32::<BigEndian>()?;
 
         let len_sig = rdr.read_u8()?;
-        let mut sigs: Vec<VAASignature> = Vec::with_capacity(len_sig as usize);
+        let mut signatures: Vec<VAASignature> = Vec::with_capacity(len_sig as usize);
         for _i in 0..len_sig {
-            let mut sig = VAASignature::default();
-
-            sig.guardian_index = rdr.read_u8()?;
+            let guardian_index = rdr.read_u8()?;
             let mut signature_data = [0u8; 65];
             rdr.read_exact(&mut signature_data)?;
-            sig.signature = signature_data.to_vec();
+            let signature = signature_data.to_vec();
 
-            sigs.push(sig);
+            signatures.push(VAASignature {
+                guardian_index,
+                signature,
+            });
         }
-        v.signatures = sigs;
 
-        v.timestamp = rdr.read_u32::<BigEndian>()?;
-        v.nonce = rdr.read_u32::<BigEndian>()?;
-        v.emitter_chain = rdr.read_u16::<BigEndian>()?;
+        let timestamp = rdr.read_u32::<BigEndian>()?;
+        let nonce = rdr.read_u32::<BigEndian>()?;
+        let emitter_chain = rdr.read_u16::<BigEndian>()?;
 
         let mut emitter_address = [0u8; 32];
         rdr.read_exact(&mut emitter_address)?;
-        v.emitter_address = emitter_address;
 
-        v.sequence = rdr.read_u64::<BigEndian>()?;
-        v.consistency_level = rdr.read_u8()?;
+        let sequence = rdr.read_u64::<BigEndian>()?;
+        let consistency_level = rdr.read_u8()?;
 
-        rdr.read_to_end(&mut v.payload)?;
+        let mut payload = Vec::new();
+        rdr.read_to_end(&mut payload)?;
 
-        Ok(v)
+        Ok(VAA {
+            version,
+            guardian_set_index,
+            signatures,
+            timestamp,
+            nonce,
+            emitter_chain,
+            emitter_address,
+            sequence,
+            consistency_level,
+            payload,
+        })
     }
 }
 

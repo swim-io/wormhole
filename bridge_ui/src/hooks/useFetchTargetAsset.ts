@@ -1,13 +1,16 @@
 import {
   ChainId,
+  CHAIN_ID_ALGORAND,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
+  CHAIN_ID_TERRA2,
+  getForeignAssetAlgorand,
   getForeignAssetEth,
   getForeignAssetSolana,
   getForeignAssetTerra,
-  hexToNativeString,
+  hexToNativeAssetString,
   hexToUint8Array,
   isEVMChain,
+  isTerraChain,
 } from "@certusone/wormhole-sdk";
 import {
   getForeignAssetEth as getForeignAssetEthNFT,
@@ -17,6 +20,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { arrayify } from "@ethersproject/bytes";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
+import algosdk from "algosdk";
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -40,15 +44,17 @@ import {
 } from "../store/selectors";
 import { setTargetAsset as setTransferTargetAsset } from "../store/transferSlice";
 import {
+  ALGORAND_HOST,
+  ALGORAND_TOKEN_BRIDGE_ID,
   getEvmChainId,
   getNFTBridgeAddressForChain,
   getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
-  TERRA_HOST,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
+  getTerraConfig,
 } from "../utils/consts";
+import { queryExternalId } from "../utils/terra";
 
 function useFetchTargetAsset(nft?: boolean) {
   const dispatch = useDispatch();
@@ -113,20 +119,39 @@ function useFetchTargetAsset(nft?: boolean) {
       return;
     }
     setLastSuccessfulArgs(null);
-    if (isSourceAssetWormholeWrapped && originChain === targetChain) {
-      dispatch(
-        setTargetAsset(
-          receiveDataWrapper({
-            doesExist: true,
-            address: hexToNativeString(originAsset, originChain) || null,
-          })
-        )
-      );
-      setArgs();
-      return;
-    }
     let cancelled = false;
     (async () => {
+      if (isSourceAssetWormholeWrapped && originChain === targetChain) {
+        if (originChain === CHAIN_ID_TERRA2) {
+          const tokenId = await queryExternalId(originAsset || "");
+          if (!cancelled) {
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({
+                  doesExist: true,
+                  address: tokenId || null,
+                })
+              )
+            );
+          }
+        } else {
+          if (!cancelled) {
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({
+                  doesExist: true,
+                  address:
+                    hexToNativeAssetString(originAsset, originChain) || null,
+                })
+              )
+            );
+          }
+        }
+        if (!cancelled) {
+          setArgs();
+        }
+        return;
+      }
       if (
         isEVMChain(targetChain) &&
         provider &&
@@ -209,12 +234,12 @@ function useFetchTargetAsset(nft?: boolean) {
           }
         }
       }
-      if (targetChain === CHAIN_ID_TERRA && originChain && originAsset) {
+      if (isTerraChain(targetChain) && originChain && originAsset) {
         dispatch(setTargetAsset(fetchDataWrapper()));
         try {
-          const lcd = new LCDClient(TERRA_HOST);
+          const lcd = new LCDClient(getTerraConfig(targetChain));
           const asset = await getForeignAssetTerra(
-            TERRA_TOKEN_BRIDGE_ADDRESS,
+            getTokenBridgeAddressForChain(targetChain),
             lcd,
             originChain,
             hexToUint8Array(originAsset)
@@ -228,6 +253,44 @@ function useFetchTargetAsset(nft?: boolean) {
             setArgs();
           }
         } catch (e) {
+          if (!cancelled) {
+            dispatch(
+              setTargetAsset(
+                errorDataWrapper(
+                  "Unable to determine existence of wrapped asset"
+                )
+              )
+            );
+          }
+        }
+      }
+      if (targetChain === CHAIN_ID_ALGORAND && originChain && originAsset) {
+        dispatch(setTargetAsset(fetchDataWrapper()));
+        try {
+          const algodClient = new algosdk.Algodv2(
+            ALGORAND_HOST.algodToken,
+            ALGORAND_HOST.algodServer,
+            ALGORAND_HOST.algodPort
+          );
+          const asset = await getForeignAssetAlgorand(
+            algodClient,
+            ALGORAND_TOKEN_BRIDGE_ID,
+            originChain,
+            originAsset
+          );
+          if (!cancelled) {
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({
+                  doesExist: !!asset,
+                  address: asset === null ? asset : asset.toString(),
+                })
+              )
+            );
+            setArgs();
+          }
+        } catch (e) {
+          console.error(e);
           if (!cancelled) {
             dispatch(
               setTargetAsset(

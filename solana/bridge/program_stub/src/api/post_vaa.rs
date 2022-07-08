@@ -12,13 +12,11 @@ use solana_program::{
 use bridge::{
     accounts::{
         Bridge,
-        GuardianSetDerivationData,
         PostedVAA,
         PostedVAADerivationData,
     },
     instructions::hash_vaa,
     PostVAAData,
-    CHAIN_ID_SOLANA,
 };
 use solitaire::{
     processors::seeded::Seeded,
@@ -46,9 +44,6 @@ pub struct PostVAA<'b> {
     pub clock: Sysvar<'b, Clock>,
 }
 
-impl<'b> InstructionContext<'b> for PostVAA<'b> {
-}
-
 #[derive(Default, BorshSerialize, BorshDeserialize)]
 pub struct Signature {
     pub index: u8,
@@ -60,7 +55,7 @@ pub struct Signature {
 pub type ForeignAddress = [u8; 32];
 
 pub fn post_vaa(ctx: &ExecutionContext, accs: &mut PostVAA, vaa: PostVAAData) -> Result<()> {
-    let mut msg_derivation = PostedVAADerivationData {
+    let msg_derivation = PostedVAADerivationData {
         payload_hash: hash_vaa(&vaa).to_vec(),
     };
 

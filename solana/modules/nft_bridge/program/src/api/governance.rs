@@ -36,7 +36,7 @@ use solitaire::{
 };
 
 // Confirm that a ClaimableVAA came from the correct chain, signed by the right emitter.
-fn verify_governance<'a, T>(vaa: &ClaimableVAA<'a, T>) -> Result<()>
+fn verify_governance<T>(vaa: &ClaimableVAA<T>) -> Result<()>
 where
     T: DeserializePayload,
 {
@@ -83,9 +83,6 @@ pub struct UpgradeContract<'b> {
     pub system: Info<'b>,
 }
 
-impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct UpgradeContractData {}
 
@@ -95,7 +92,7 @@ pub fn upgrade_contract(
     _data: UpgradeContractData,
 ) -> Result<()> {
     verify_governance(&accs.vaa)?;
-    accs.vaa.verify(&ctx.program_id)?;
+    accs.vaa.verify(ctx.program_id)?;
 
     accs.vaa.claim(ctx, accs.payer.key)?;
 
@@ -135,9 +132,6 @@ impl<'a> From<&RegisterChain<'a>> for EndpointDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for RegisterChain<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct RegisterChainData {}
 
@@ -152,7 +146,7 @@ pub fn register_chain(
 
     // Claim VAA
     verify_governance(&accs.vaa)?;
-    accs.vaa.verify(&ctx.program_id)?;
+    accs.vaa.verify(ctx.program_id)?;
     accs.vaa.claim(ctx, accs.payer.key)?;
 
     if accs.vaa.chain == CHAIN_ID_SOLANA {

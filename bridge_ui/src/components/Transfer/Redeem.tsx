@@ -1,15 +1,19 @@
 import {
+  CHAIN_ID_ACALA,
   CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
   CHAIN_ID_ETHEREUM_ROPSTEN,
   CHAIN_ID_FANTOM,
+  CHAIN_ID_KARURA,
+  CHAIN_ID_KLAYTN,
+  CHAIN_ID_NEON,
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
   isEVMChain,
+  isTerraChain,
   WSOL_ADDRESS,
 } from "@certusone/wormhole-sdk";
 import {
@@ -36,6 +40,7 @@ import {
 } from "../../store/selectors";
 import { reset } from "../../store/transferSlice";
 import {
+  CHAINS_BY_ID,
   CLUSTER,
   getHowToAddTokensToWalletUrl,
   ROPSTEN_WETH_ADDRESS,
@@ -44,7 +49,9 @@ import {
   WETH_ADDRESS,
   WETH_AURORA_ADDRESS,
   WFTM_ADDRESS,
+  WKLAY_ADDRESS,
   WMATIC_ADDRESS,
+  WNEON_ADDRESS,
   WROSE_ADDRESS,
 } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
@@ -70,14 +77,26 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function Redeem() {
-  const { handleClick, handleNativeClick, disabled, showLoader } =
-    useHandleRedeem();
+  const {
+    handleClick,
+    handleNativeClick,
+    handleAcalaRelayerRedeemClick,
+    disabled,
+    showLoader,
+  } = useHandleRedeem();
   const useRelayer = useSelector(selectTransferUseRelayer);
   const [manualRedeem, setManualRedeem] = useState(!useRelayer);
   const handleManuallyRedeemClick = useCallback(() => {
     setManualRedeem(true);
   }, []);
+  const handleSwitchToRelayViewClick = useCallback(() => {
+    if (useRelayer) {
+      setManualRedeem(false);
+    }
+  }, [useRelayer]);
   const targetChain = useSelector(selectTransferTargetChain);
+  const targetIsAcala =
+    targetChain === CHAIN_ID_ACALA || targetChain === CHAIN_ID_KARURA;
   const targetAsset = useSelector(selectTransferTargetAsset);
   const isRecovery = useSelector(selectTransferIsRecovery);
   const { isTransferCompletedLoading, isTransferCompleted } =
@@ -121,6 +140,14 @@ function Redeem() {
     targetChain === CHAIN_ID_FANTOM &&
     targetAsset &&
     targetAsset.toLowerCase() === WFTM_ADDRESS.toLowerCase();
+  const isKlaytnNative =
+    targetChain === CHAIN_ID_KLAYTN &&
+    targetAsset &&
+    targetAsset.toLowerCase() === WKLAY_ADDRESS.toLowerCase();
+  const isNeonNative =
+    targetChain === CHAIN_ID_NEON &&
+    targetAsset &&
+    targetAsset.toLowerCase() === WNEON_ADDRESS.toLowerCase();
   const isSolNative =
     targetChain === CHAIN_ID_SOLANA &&
     targetAsset &&
@@ -134,6 +161,8 @@ function Redeem() {
     isOasisNative ||
     isAuroraNative ||
     isFantomNative ||
+    isKlaytnNative ||
+    isNeonNative ||
     isSolNative;
   const [useNativeRedeem, setUseNativeRedeem] = useState(true);
   const toggleNativeRedeem = useCallback(() => {
@@ -146,17 +175,22 @@ function Redeem() {
 
   const relayerContent = (
     <>
-      {isEVMChain(targetChain) && !isTransferCompleted ? (
+      {isEVMChain(targetChain) && !isTransferCompleted && !targetIsAcala ? (
         <KeyAndBalance chainId={targetChain} />
       ) : null}
 
-      {!isReady && isEVMChain(targetChain) && !isTransferCompleted ? (
+      {!isReady &&
+      isEVMChain(targetChain) &&
+      !isTransferCompleted &&
+      !targetIsAcala ? (
         <Typography className={classes.centered}>
           {"Please connect your wallet to check for transfer completion."}
         </Typography>
       ) : null}
 
-      {(!isEVMChain(targetChain) || isReady) && !isTransferCompleted ? (
+      {(!isEVMChain(targetChain) || isReady) &&
+      !isTransferCompleted &&
+      !targetIsAcala ? (
         <div className={classes.centered}>
           <CircularProgress style={{ marginBottom: 16 }} />
           <Typography>
@@ -175,6 +209,30 @@ function Redeem() {
         </div>
       ) : null}
 
+      {/* TODO: handle recovery */}
+      {targetIsAcala && !isTransferCompleted ? (
+        <div className={classes.centered}>
+          <ButtonWithLoader
+            disabled={disabled}
+            onClick={handleAcalaRelayerRedeemClick}
+            showLoader={showLoader}
+          >
+            <span>
+              Redeem ({CHAINS_BY_ID[targetChain].name} pays gas for you
+              &#127881;)
+            </span>
+          </ButtonWithLoader>
+          <Button
+            onClick={handleManuallyRedeemClick}
+            size="small"
+            variant="outlined"
+            style={{ marginTop: 16 }}
+          >
+            Manually redeem instead
+          </Button>
+        </div>
+      ) : null}
+
       {isTransferCompleted ? (
         <RedeemPreview overrideExplainerString="Success! Your transfer is complete." />
       ) : null}
@@ -184,8 +242,8 @@ function Redeem() {
   const nonRelayContent = (
     <>
       <KeyAndBalance chainId={targetChain} />
-      {targetChain === CHAIN_ID_TERRA && (
-        <TerraFeeDenomPicker disabled={disabled} />
+      {isTerraChain(targetChain) && (
+        <TerraFeeDenomPicker disabled={disabled} chainId={targetChain} />
       )}
       {isNativeEligible && (
         <FormControlLabel
@@ -228,6 +286,19 @@ function Redeem() {
         <WaitingForWalletMessage />
       </>
 
+      {useRelayer && !isTransferCompleted ? (
+        <div className={classes.centered}>
+          <Button
+            onClick={handleSwitchToRelayViewClick}
+            size="small"
+            variant="outlined"
+            style={{ marginTop: 16 }}
+          >
+            Return to relayer view
+          </Button>
+        </div>
+      ) : null}
+
       {isRecovery && isReady && isTransferCompleted ? (
         <>
           <Alert severity="info" variant="outlined" className={classes.alert}>
@@ -248,6 +319,7 @@ function Redeem() {
               <SmartAddress
                 chainId={targetChain}
                 address={targetAsset || undefined}
+                isAsset
               />
             </>
           ) : null}

@@ -1,5 +1,142 @@
 # Changelog
 
+## 0.4.5
+
+### Changed
+
+Fix hex/Uint8Array to native Terra 2 for 20-byte addresses
+
+## 0.4.4
+
+### Added
+
+Terra 2 mainnet addresses
+
+## 0.4.3
+
+### Added
+
+Terra 2 testnet addresses
+
+## 0.4.2
+
+### Added
+
+Neon testnet support
+Terra 2 devnet support
+
+### Changed
+
+Updated terra.js
+
+## 0.3.8
+
+### Added
+
+Neon testnet support
+
+## 0.3.7
+
+### Added
+
+Acala mainnet support
+
+## 0.3.6
+
+### Changed
+
+Fixed Algorand for addresses for non native assets
+
+## 0.3.5
+
+### Added
+
+Added APIs to send transfers with payloads
+
+## 0.3.4
+
+### Changed
+
+Fixed createWrappedAlgorand for Chain IDs > 128
+
+## 0.3.3
+
+### Added
+
+Changed the payload3 support on Algorand conform to the new ABI specifications
+
+Klaytn and Celo mainnet support
+
+## 0.3.2
+
+### Added
+
+Payload 3 (Contract-Controlled Transfer) support
+
+## 0.3.1
+
+### Added
+
+Moonbeam support
+
+## 0.3.0
+
+### Added
+
+Added `tryNativeToHexString`
+
+Added `tryNativeToUint8Array`
+
+Added `tryHexToNativeString`
+
+Added `tryUint8ArrayToNative`
+
+Added support for passing in chain names wherever a chain is expected
+
+Added chain id 0 (unset)
+
+Added contract addresses to the `consts` module
+
+### Changed
+
+Deprecated `nativeToHexString`
+
+Deprecated `hexToNativeString`
+
+Deprecated `hexToNativeAssetString`
+
+Deprecated `uint8ArrayToNative`
+
+`isEVMChain` now performs type narrowing
+
+`CHAIN_ID_*` constants now have literal types
+
+## 0.2.7
+
+### Added
+
+safeBigIntToNumber() utility function
+
+## 0.2.6
+
+### Added
+
+Algorand support
+
+Celo support
+
+## 0.2.5
+
+### Changed
+
+postVaa uses guardian_set_index from the vaa
+
+## 0.2.4
+
+### Added
+
+Klaytn support
+
 ## 0.2.3
 
 ### Added

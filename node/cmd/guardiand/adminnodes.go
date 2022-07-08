@@ -3,15 +3,16 @@ package guardiand
 import (
 	"context"
 	"fmt"
-	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
-	"github.com/certusone/wormhole/node/pkg/vaa"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
+	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/spf13/cobra"
 )
 
 // How to test in container:
@@ -101,15 +102,22 @@ func runListNodes(cmd *cobra.Command, args []string) {
 		{"BSC", vaa.ChainIDBSC},
 		{"Polygon", vaa.ChainIDPolygon},
 		{"Avalanche", vaa.ChainIDAvalanche},
+		{"Algorand", vaa.ChainIDAlgorand},
 		{"Oasis", vaa.ChainIDOasis},
+		{"Aurora", vaa.ChainIDAurora},
 		{"Fantom", vaa.ChainIDFantom},
+		{"Karura", vaa.ChainIDKarura},
+		{"Acala", vaa.ChainIDAcala},
+		{"Klaytn", vaa.ChainIDKlaytn},
+		{"Celo", vaa.ChainIDCelo},
+		{"Terra2", vaa.ChainIDTerra2},
 	}
 
 	if isTestnet {
 		networks = append(networks, network{"Ropsten", vaa.ChainIDEthereumRopsten})
-		networks = append(networks, network{"Aurora", vaa.ChainIDAurora})
-		networks = append(networks, network{"Karura", vaa.ChainIDKarura})
-		networks = append(networks, network{"Acala", vaa.ChainIDAcala})
+		networks = append(networks, network{"Moonbeam", vaa.ChainIDMoonbeam})
+		networks = append(networks, network{"Neon", vaa.ChainIDNeon})
+		networks = append(networks, network{"Injective", vaa.ChainIDInjective})
 	}
 
 	if len(only) > 0 {

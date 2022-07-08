@@ -104,7 +104,6 @@ pub fn post_message(
 
     Ok(Instruction {
         program_id,
-
         accounts: vec![
             AccountMeta::new(bridge, false),
             AccountMeta::new(message, true),
@@ -116,12 +115,54 @@ pub fn post_message(
             AccountMeta::new_readonly(sysvar::rent::id(), false),
             AccountMeta::new_readonly(solana_program::system_program::id(), false),
         ],
-
         data: (
             crate::instruction::Instruction::PostMessage,
             PostMessageData {
                 nonce,
-                payload: payload.clone(),
+                payload,
+                consistency_level: commitment,
+            },
+        )
+            .try_to_vec()?,
+    })
+}
+
+pub fn post_message_unreliable(
+    program_id: Pubkey,
+    payer: Pubkey,
+    emitter: Pubkey,
+    message: Pubkey,
+    nonce: u32,
+    payload: Vec<u8>,
+    commitment: ConsistencyLevel,
+) -> solitaire::Result<Instruction> {
+    let bridge = Bridge::<'_, { AccountState::Uninitialized }>::key(None, &program_id);
+    let fee_collector = FeeCollector::<'_>::key(None, &program_id);
+    let sequence = Sequence::<'_>::key(
+        &SequenceDerivationData {
+            emitter_key: &emitter,
+        },
+        &program_id,
+    );
+
+    Ok(Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(bridge, false),
+            AccountMeta::new(message, true),
+            AccountMeta::new_readonly(emitter, true),
+            AccountMeta::new(sequence, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new(fee_collector, false),
+            AccountMeta::new_readonly(sysvar::clock::id(), false),
+            AccountMeta::new_readonly(sysvar::rent::id(), false),
+            AccountMeta::new_readonly(solana_program::system_program::id(), false),
+        ],
+        data: (
+            crate::instruction::Instruction::PostMessageUnreliable,
+            PostMessageData {
+                nonce,
+                payload,
                 consistency_level: commitment,
             },
         )
@@ -178,7 +219,7 @@ pub fn post_vaa(
     };
 
     let message =
-        PostedVAA::<'_, { AccountState::MaybeInitialized }>::key(&msg_derivation_data, &program_id);
+        PostedVAA::<'_, { AccountState::MaybeInitialized }>::key(msg_derivation_data, &program_id);
 
     Instruction {
         program_id,
@@ -268,7 +309,7 @@ pub fn upgrade_guardian_set(
         &ClaimDerivationData {
             emitter_address: emitter.to_bytes(),
             emitter_chain: CHAIN_ID_SOLANA,
-            sequence: sequence,
+            sequence,
         },
         &program_id,
     );
@@ -364,7 +405,7 @@ pub fn transfer_fees(
 
         accounts: vec![
             AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(bridge, false),
+            AccountMeta::new(bridge, false),
             AccountMeta::new_readonly(message, false),
             AccountMeta::new(claim, false),
             AccountMeta::new(fee_collector, false),
@@ -389,10 +430,10 @@ pub fn serialize_vaa(vaa: &PostVAAData) -> Vec<u8> {
     v.write_u32::<BigEndian>(vaa.timestamp).unwrap();
     v.write_u32::<BigEndian>(vaa.nonce).unwrap();
     v.write_u16::<BigEndian>(vaa.emitter_chain).unwrap();
-    v.write(&vaa.emitter_address).unwrap();
+    v.write_all(&vaa.emitter_address).unwrap();
     v.write_u64::<BigEndian>(vaa.sequence).unwrap();
     v.write_u8(vaa.consistency_level).unwrap();
-    v.write(&vaa.payload).unwrap();
+    v.write_all(&vaa.payload).unwrap();
     v.into_inner()
 }
 
@@ -400,6 +441,6 @@ pub fn serialize_vaa(vaa: &PostVAAData) -> Vec<u8> {
 pub fn hash_vaa(vaa: &PostVAAData) -> [u8; 32] {
     let body = serialize_vaa(vaa);
     let mut h = sha3::Keccak256::default();
-    h.write(body.as_slice()).unwrap();
+    h.write_all(body.as_slice()).unwrap();
     h.finalize().into()
 }

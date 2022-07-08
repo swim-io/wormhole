@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math/big"
 	"strings"
 	"time"
 
@@ -58,6 +59,15 @@ type (
 	}
 
 	SignatureData [65]byte
+
+	TransferPayloadHdr struct {
+		Type          uint8
+		Amount        *big.Int
+		OriginAddress Address
+		OriginChain   ChainID
+		TargetAddress Address
+		TargetChain   ChainID
+	}
 )
 
 func (a Address) MarshalJSON() ([]byte, error) {
@@ -110,6 +120,18 @@ func (c ChainID) String() string {
 		return "karura"
 	case ChainIDAcala:
 		return "acala"
+	case ChainIDKlaytn:
+		return "klaytn"
+	case ChainIDCelo:
+		return "celo"
+	case ChainIDMoonbeam:
+		return "moonbeam"
+	case ChainIDNeon:
+		return "neon"
+	case ChainIDTerra2:
+		return "terra2"
+	case ChainIDInjective:
+		return "injective"
 	default:
 		return fmt.Sprintf("unknown chain ID: %d", c)
 	}
@@ -145,6 +167,18 @@ func ChainIDFromString(s string) (ChainID, error) {
 		return ChainIDKarura, nil
 	case "acala":
 		return ChainIDAcala, nil
+	case "klaytn":
+		return ChainIDKlaytn, nil
+	case "celo":
+		return ChainIDCelo, nil
+	case "moonbeam":
+		return ChainIDMoonbeam, nil
+	case "neon":
+		return ChainIDNeon, nil
+	case "terra2":
+		return ChainIDTerra2, nil
+	case "injective":
+		return ChainIDInjective, nil
 	default:
 		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
 	}
@@ -176,15 +210,49 @@ const (
 	ChainIDKarura ChainID = 11
 	// ChainIDAcala is the ChainID of Acala
 	ChainIDAcala ChainID = 12
+	// ChainIDKlaytn is the ChainID of Klaytn
+	ChainIDKlaytn ChainID = 13
+	// ChainIDCelo is the ChainID of Celo
+	ChainIDCelo ChainID = 14
+	// ChainIDMoonbeam is the ChainID of Moonbeam
+	ChainIDMoonbeam ChainID = 16
+	// ChainIDNeon is the ChainID of Neon
+	ChainIDNeon ChainID = 17
+	// ChainIDTerra2 is the ChainID of Terra 2
+	ChainIDTerra2 ChainID = 18
+	// ChainIDInjective is the ChainID of Injective
+	ChainIDInjective ChainID = 19
 
 	// ChainIDEthereumRopsten is the ChainID of Ethereum Ropsten
 	ChainIDEthereumRopsten ChainID = 10001
 
-	minVAALength        = 1 + 4 + 52 + 4 + 1 + 1
+	// Minimum VAA size is derrived from the following assumptions:
+	//  HEADER
+	//  - Supported VAA Version (1 byte)
+	//  - Guardian Set Index (4 bytes)
+	//  - Length of Signatures (1 byte) <== assume no signatures
+	//  - Actual Signatures (0 bytes)
+	//  BODY
+	//  - timestamp (4 bytes)
+	//  - nonce (4 bytes)
+	//  - emitter chain (2 bytes)
+	//  - emitter address (32 bytes)
+	//  - sequence (8 bytes)
+	//  - consistency level (1 byte)
+	//  - payload (0 bytes)
+	//
+	// From Above: 1 + 4 + 1 + 0 + 4 + 4 + 2 + 32 + 8  + 1 + 0 // Equals 57
+	//
+	// More details here: https://docs.wormholenetwork.com/wormhole/vaas
+	minVAALength        = 57
 	SupportedVAAVersion = 0x01
 )
 
 // Unmarshal deserializes the binary representation of a VAA
+//
+// WARNING: Unmarshall will truncate payloads at 1000 bytes, this is done mainly to avoid denial of service
+//   - If you need to access the full payload, consider parsing VAA from Bytes instead of Unmarshal
+//
 func Unmarshal(data []byte) (*VAA, error) {
 	if len(data) < minVAALength {
 		return nil, fmt.Errorf("VAA is too short")
@@ -258,6 +326,7 @@ func Unmarshal(data []byte) (*VAA, error) {
 	if err != nil || n == 0 {
 		return nil, fmt.Errorf("failed to read payload [%d]: %w", n, err)
 	}
+
 	v.Payload = payload[:n]
 
 	return v, nil
@@ -285,20 +354,39 @@ func (v *VAA) VerifySignatures(addresses []common.Address) bool {
 
 	h := v.SigningMsg()
 
+	last_index := -1
+	signing_addresses := []common.Address{}
+
 	for _, sig := range v.Signatures {
 		if int(sig.Index) >= len(addresses) {
 			return false
 		}
 
+		// Ensure increasing indexes
+		if int(sig.Index) <= last_index {
+			return false
+		}
+		last_index = int(sig.Index)
+
+		// Get pubKey to determine who signers address
 		pubKey, err := crypto.Ecrecover(h.Bytes(), sig.Signature[:])
 		if err != nil {
 			return false
 		}
 		addr := common.BytesToAddress(crypto.Keccak256(pubKey[1:])[12:])
 
+		// Ensure this signer is at the correct positional index
 		if addr != addresses[sig.Index] {
 			return false
 		}
+
+		// Ensure we never see the same signer twice
+		for _, signing_address := range signing_addresses {
+			if signing_address == addr {
+				return false
+			}
+		}
+		signing_addresses = append(signing_addresses, addr)
 	}
 
 	return true
@@ -360,6 +448,58 @@ func (v *VAA) AddSignature(key *ecdsa.PrivateKey, index uint8) {
 	})
 }
 
+// NOTE: This function assumes that the caller has verified that the VAA is from the token bridge.
+func IsTransfer(payload []byte) bool {
+	return (len(payload) > 0) && ((payload[0] == 1) || (payload[0] == 3))
+}
+
+func DecodeTransferPayloadHdr(payload []byte) (*TransferPayloadHdr, error) {
+	if !IsTransfer(payload) {
+		return nil, fmt.Errorf("unsupported payload type")
+	}
+
+	if len(payload) < 101 {
+		return nil, fmt.Errorf("buffer too short")
+	}
+
+	p := &TransferPayloadHdr{}
+
+	// Payload type: payload[0]
+	p.Type = uint8(payload[0])
+
+	// Amount: payload[1] for 32
+	p.Amount = new(big.Int)
+	p.Amount.SetBytes(payload[1:33])
+
+	reader := bytes.NewReader(payload[33:])
+
+	// Origin address: payload[33] for 32
+	err := binary.Read(reader, binary.BigEndian, &p.OriginAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Origin chain ID: payload[65] for 2
+	err = binary.Read(reader, binary.BigEndian, &p.OriginChain)
+	if err != nil {
+		return nil, err
+	}
+
+	// Target address: payload[67] for 32
+	err = binary.Read(reader, binary.BigEndian, &p.TargetAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Target chain ID: payload[99] for 2
+	err = binary.Read(reader, binary.BigEndian, &p.TargetChain)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
 // MustWrite calls binary.Write and panics on errors
 func MustWrite(w io.Writer, order binary.ByteOrder, data interface{}) {
 	if err := binary.Write(w, order, data); err != nil {
@@ -367,13 +507,31 @@ func MustWrite(w io.Writer, order binary.ByteOrder, data interface{}) {
 	}
 }
 
-// StringToAddress converts a hex-encoded adress into a vaa.Address
+// StringToAddress converts a hex-encoded address into a vaa.Address
 func StringToAddress(value string) (Address, error) {
 	var address Address
+
+	// Make sure we have enough to decode
+	if len(value) < 2 {
+		return address, fmt.Errorf("value must be at least 1 byte")
+	}
+
+	// Trim any preceding "0x" to the address
+	if value[0:2] == "0x" {
+		value = value[2:]
+	}
+
+	// Decode the string from hex to binary
 	res, err := hex.DecodeString(value)
 	if err != nil {
 		return address, err
 	}
-	copy(address[:], res)
+
+	// Make sure we don't have too many bytes
+	if len(res) > 32 {
+		return address, fmt.Errorf("value must be no more than 32 bytes")
+	}
+	copy(address[32-len(res):], res)
+
 	return address, nil
 }

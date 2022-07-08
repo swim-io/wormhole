@@ -196,6 +196,7 @@ function EvmMigrationLineItem({
             chainId={chainId}
             address={poolInfo.data.fromAddress}
             symbol={fromSymbol || undefined}
+            isAsset
           />
         </div>
         <div>
@@ -215,6 +216,7 @@ function EvmMigrationLineItem({
             chainId={chainId}
             address={poolInfo.data.toAddress}
             symbol={toSymbol || undefined}
+            isAsset
           />
         </div>
         <div className={classes.convertButton}>
@@ -343,7 +345,7 @@ export default function EvmQuickMigrate({ chainId }: { chainId: ChainId }) {
         } into
         Wormhole V2 tokens.`}
       </Typography>
-      <EthereumSignerKey />
+      <EthereumSignerKey chainId={chainId} />
       {!isReady ? (
         <Typography variant="body1">Please connect your wallet.</Typography>
       ) : migratorsError ? (

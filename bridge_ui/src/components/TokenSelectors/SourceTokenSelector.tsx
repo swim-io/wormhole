@@ -1,8 +1,9 @@
 //import Autocomplete from '@material-ui/lab/Autocomplete';
 import {
+  CHAIN_ID_ALGORAND,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
   isEVMChain,
+  isTerraChain,
 } from "@certusone/wormhole-sdk";
 import { TextField, Typography } from "@material-ui/core";
 import { useCallback } from "react";
@@ -24,6 +25,7 @@ import {
   setSourceParsedTokenAccount as setTransferSourceParsedTokenAccount,
   setSourceWalletAddress as setTransferSourceWalletAddress,
 } from "../../store/transferSlice";
+import AlgoTokenPicker from "./AlgoTokenPicker";
 import EvmTokenPicker from "./EvmTokenPicker";
 import RefreshButtonWrapper from "./RefreshButtonWrapper";
 import SolanaTokenPicker from "./SolanaTokenPicker";
@@ -78,9 +80,9 @@ export const TokenSelector = (props: TokenSelectorProps) => {
 
   //This is only for errors so bad that we shouldn't even mount the component
   const fatalError =
-    isEVMChain(lookupChain) &&
-    lookupChain !== CHAIN_ID_TERRA &&
-    maps?.tokenAccounts?.error; //Terra & ETH can proceed because it has advanced mode
+    !isEVMChain(lookupChain) &&
+    !isTerraChain(lookupChain) &&
+    maps?.tokenAccounts?.error; //Terra & EVM chains can proceed because they have advanced mode
 
   const content = fatalError ? (
     <RefreshButtonWrapper callback={resetAccountWrapper}>
@@ -106,8 +108,17 @@ export const TokenSelector = (props: TokenSelectorProps) => {
       chainId={lookupChain}
       nft={nft}
     />
-  ) : lookupChain === CHAIN_ID_TERRA ? (
+  ) : isTerraChain(lookupChain) ? (
     <TerraTokenPicker
+      value={sourceParsedTokenAccount || null}
+      disabled={disabled}
+      onChange={handleOnChange}
+      resetAccounts={maps?.resetAccounts}
+      tokenAccounts={maps?.tokenAccounts}
+      chainId={lookupChain}
+    />
+  ) : lookupChain === CHAIN_ID_ALGORAND ? (
+    <AlgoTokenPicker
       value={sourceParsedTokenAccount || null}
       disabled={disabled}
       onChange={handleOnChange}

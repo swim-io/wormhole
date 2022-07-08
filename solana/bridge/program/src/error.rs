@@ -23,6 +23,9 @@ pub enum Error {
     PostVAAGuardianSetExpired,
     TooManyGuardians,
     VAAAlreadyExecuted,
+    VAAInvalid,
+    InvalidPayloadLength,
+    EmitterChanged,
 }
 
 /// Errors thrown by the program will bubble up to the solitaire wrapper, which needs a way to

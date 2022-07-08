@@ -8,24 +8,22 @@ use crate::{
         GovernancePayloadUpgrade,
         PayloadGovernanceRegisterChain,
     },
-    types::*,
     TokenBridgeError::{
-        InvalidChain,
         InvalidGovernanceKey,
+        InvalidVAA,
     },
+    INVALID_VAAS,
 };
 use bridge::{
     vaa::{
         ClaimableVAA,
         DeserializePayload,
-        PayloadMessage,
     },
     CHAIN_ID_SOLANA,
 };
 use solana_program::{
     account_info::AccountInfo,
     program::invoke_signed,
-    program_error::ProgramError,
     pubkey::Pubkey,
     sysvar::{
         clock::Clock,
@@ -37,13 +35,9 @@ use solitaire::{
     CreationLamports::Exempt,
     *,
 };
-use std::ops::{
-    Deref,
-    DerefMut,
-};
 
-// Confirm that a ClaimableVAA came from the correct chain, signed by the right emitter.
-fn verify_governance<'a, T>(vaa: &ClaimableVAA<'a, T>) -> Result<()>
+/// Confirm that a ClaimableVAA came from the correct chain, signed by the right emitter.
+fn verify_governance<T>(vaa: &ClaimableVAA<T>) -> Result<()>
 where
     T: DeserializePayload,
 {
@@ -90,9 +84,6 @@ pub struct UpgradeContract<'b> {
     pub system: Info<'b>,
 }
 
-impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct UpgradeContractData {}
 
@@ -101,9 +92,12 @@ pub fn upgrade_contract(
     accs: &mut UpgradeContract,
     _data: UpgradeContractData,
 ) -> Result<()> {
+    if INVALID_VAAS.contains(&&*accs.vaa.message.info().key.to_string()) {
+        return Err(InvalidVAA.into());
+    }
+
     verify_governance(&accs.vaa)?;
     accs.vaa.verify(ctx.program_id)?;
-
     accs.vaa.claim(ctx, accs.payer.key)?;
 
     let upgrade_ix = solana_program::bpf_loader_upgradeable::upgrade(
@@ -142,20 +136,21 @@ impl<'a> From<&RegisterChain<'a>> for EndpointDerivationData {
     }
 }
 
-impl<'b> InstructionContext<'b> for RegisterChain<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct RegisterChainData {}
 
 pub fn register_chain(
     ctx: &ExecutionContext,
     accs: &mut RegisterChain,
-    data: RegisterChainData,
+    _data: RegisterChainData,
 ) -> Result<()> {
     let derivation_data: EndpointDerivationData = (&*accs).into();
     accs.endpoint
         .verify_derivation(ctx.program_id, &derivation_data)?;
+
+    if INVALID_VAAS.contains(&&*accs.vaa.message.info().key.to_string()) {
+        return Err(InvalidVAA.into());
+    }
 
     // Claim VAA
     verify_governance(&accs.vaa)?;

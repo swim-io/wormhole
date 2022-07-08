@@ -151,6 +151,7 @@ export default function EvmWorkflow({
       chainId={chainId}
       address={poolInfo.data?.toAddress}
       symbol={poolInfo.data?.toSymbol}
+      isAsset
     />
   );
   const fromTokenPretty = (
@@ -158,6 +159,7 @@ export default function EvmWorkflow({
       chainId={chainId}
       address={poolInfo.data?.fromAddress}
       symbol={poolInfo.data?.fromSymbol}
+      isAsset
     />
   );
   const poolPretty = (
@@ -229,7 +231,7 @@ export default function EvmWorkflow({
 
   return (
     <div className={classes.containerDiv}>
-      <EthereumSignerKey />
+      <EthereumSignerKey chainId={chainId} />
       {!isReady ? (
         <Typography variant="body1">Please connect your wallet.</Typography>
       ) : poolInfo.isLoading ? (

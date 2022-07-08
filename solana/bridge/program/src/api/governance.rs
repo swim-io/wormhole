@@ -1,9 +1,7 @@
 use solitaire::*;
 
 use solana_program::{
-    log::sol_log,
     program::invoke_signed,
-    program_error::ProgramError,
     pubkey::Pubkey,
     sysvar::{
         clock::Clock,
@@ -38,14 +36,11 @@ use crate::{
     CHAIN_ID_SOLANA,
 };
 
-fn verify_governance<'a, T>(vaa: &ClaimableVAA<'a, T>) -> Result<()>
+fn verify_governance<T>(vaa: &ClaimableVAA<T>) -> Result<()>
 where
     T: DeserializePayload,
 {
-    let expected_emitter = std::option_env!("EMITTER_ADDRESS").ok_or_else(|| {
-        sol_log("EMITTER_ADDRESS not set at compile-time");
-        ProgramError::UninitializedAccount
-    })?;
+    let expected_emitter = std::env!("EMITTER_ADDRESS");
     let current_emitter = format!(
         "{}",
         Pubkey::new_from_array(vaa.message.meta().emitter_address)
@@ -89,9 +84,6 @@ pub struct UpgradeContract<'b> {
     pub clock: Sysvar<'b, Clock>,
     pub bpf_loader: Info<'b>,
     pub system: Info<'b>,
-}
-
-impl<'b> InstructionContext<'b> for UpgradeContract<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
@@ -139,9 +131,6 @@ pub struct UpgradeGuardianSet<'b> {
 
     /// New guardian set
     pub guardian_set_new: Mut<GuardianSet<'b, { AccountState::Uninitialized }>>,
-}
-
-impl<'b> InstructionContext<'b> for UpgradeGuardianSet<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
@@ -217,9 +206,6 @@ pub struct SetFees<'b> {
     pub vaa: ClaimableVAA<'b, GovernancePayloadSetMessageFee>,
 }
 
-impl<'b> InstructionContext<'b> for SetFees<'b> {
-}
-
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 pub struct SetFeesData {}
 
@@ -238,7 +224,7 @@ pub struct TransferFees<'b> {
     pub payer: Mut<Signer<Info<'b>>>,
 
     /// Bridge config
-    pub bridge: Bridge<'b, { AccountState::Initialized }>,
+    pub bridge: Mut<Bridge<'b, { AccountState::Initialized }>>,
 
     /// Governance VAA
     pub vaa: ClaimableVAA<'b, GovernancePayloadTransferFees>,
@@ -251,9 +237,6 @@ pub struct TransferFees<'b> {
 
     /// Rent calculator to check transfer sizes.
     pub rent: Sysvar<'b, Rent>,
-}
-
-impl<'b> InstructionContext<'b> for TransferFees<'b> {
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Default)]
@@ -272,14 +255,16 @@ pub fn transfer_fees(
     verify_governance(&accs.vaa)?;
     accs.vaa.verify(ctx.program_id)?;
 
-    if accs
+    let new_balance = accs
         .fee_collector
         .lamports()
-        .saturating_sub(accs.vaa.amount.as_u64())
-        < accs.rent.minimum_balance(accs.fee_collector.data_len())
-    {
+        .saturating_sub(accs.vaa.amount.as_u64());
+
+    if new_balance < accs.rent.minimum_balance(accs.fee_collector.data_len()) {
         return Err(InvalidGovernanceWithdrawal.into());
     }
+
+    accs.bridge.last_lamports = new_balance;
 
     accs.vaa.claim(ctx, accs.payer.key)?;
 
