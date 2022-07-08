@@ -41,6 +41,7 @@ config.define_string("webHost", False, "Public hostname for port forwards")
 
 # Components
 config.define_bool("algorand", False, "Enable Algorand component")
+config.define_bool("terra", False, "Enable Terra component")
 config.define_bool("solana", False, "Enable Solana component")
 config.define_bool("explorer", False, "Enable explorer component")
 config.define_bool("bridge_ui", False, "Enable bridge UI component")
@@ -56,7 +57,8 @@ namespace = cfg.get("namespace", "wormhole")
 gcpProject = cfg.get("gcpProject", "local-dev")
 bigTableKeyPath = cfg.get("bigTableKeyPath", "./event_database/devnet_key.json")
 webHost = cfg.get("webHost", "localhost")
-algorand = cfg.get("algorand", True)
+algorand = cfg.get("algorand", False)
+terra = cfg.get("terra", False)
 solana = cfg.get("solana", True)
 ci = cfg.get("ci", False)
 explorer = cfg.get("explorer", ci)
@@ -194,7 +196,11 @@ def build_node_yaml():
 
 k8s_yaml_with_ns(build_node_yaml())
 
-guardian_resource_deps = ["proto-gen", "eth-devnet", "eth-devnet2", "terra-terrad", "terra2-terrad"]
+guardian_resource_deps = ["proto-gen", "eth-devnet", "eth-devnet2"]
+
+if terra:
+  guardian_resource_deps = guardian_resource_deps + ["terra-terrad", "terra2-terrad"]
+
 if solana:
     guardian_resource_deps = guardian_resource_deps + ["solana-devnet"]
 
@@ -439,9 +445,13 @@ if ci_tests:
 
     k8s_yaml_with_ns("devnet/tests.yaml")
 
+    resource_deps = ["proto-gen-web", "wasm-gen", "eth-devnet", "eth-devnet2", "solana-devnet", "spy", "guardian"]
+    if terra:
+      resource_deps = resource_deps + ["terra-terrad", "terra-fcd", "terra2-terrad", "terra2-fcd"]
+
     k8s_resource(
         "ci-tests",
-        resource_deps = ["proto-gen-web", "wasm-gen", "eth-devnet", "eth-devnet2", "terra-terrad", "terra-fcd", "terra2-terrad", "terra2-fcd", "solana-devnet", "spy", "guardian"],
+        resource_deps = resource_deps,
         labels = ["ci"],
         trigger_mode = trigger_mode,
     )
@@ -502,85 +512,86 @@ if explorer:
 
 # terra devnet
 
-docker_build(
-    ref = "terra-image",
-    context = "./terra/devnet",
-    dockerfile = "terra/devnet/Dockerfile",
-)
+if terra:
+  docker_build(
+      ref = "terra-image",
+      context = "./terra/devnet",
+      dockerfile = "terra/devnet/Dockerfile",
+  )
 
-docker_build(
-    ref = "terra-contracts",
-    context = "./terra",
-    dockerfile = "./terra/Dockerfile",
-)
+  docker_build(
+      ref = "terra-contracts",
+      context = "./terra",
+      dockerfile = "./terra/Dockerfile",
+  )
 
-k8s_yaml_with_ns("devnet/terra-devnet.yaml")
+  k8s_yaml_with_ns("devnet/terra-devnet.yaml")
 
-k8s_resource(
-    "terra-terrad",
-    port_forwards = [
-        port_forward(26657, name = "Terra RPC [:26657]", host = webHost),
-        port_forward(1317, name = "Terra LCD [:1317]", host = webHost),
-    ],
-    resource_deps = ["const-gen"],
-    labels = ["terra"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra-terrad",
+      port_forwards = [
+          port_forward(26657, name = "Terra RPC [:26657]", host = webHost),
+          port_forward(1317, name = "Terra LCD [:1317]", host = webHost),
+      ],
+      resource_deps = ["const-gen"],
+      labels = ["terra"],
+      trigger_mode = trigger_mode,
+  )
 
-k8s_resource(
-    "terra-postgres",
-    labels = ["terra"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra-postgres",
+      labels = ["terra"],
+      trigger_mode = trigger_mode,
+  )
 
-k8s_resource(
-    "terra-fcd",
-    resource_deps = ["terra-terrad", "terra-postgres"],
-    port_forwards = [port_forward(3060, name = "Terra FCD [:3060]", host = webHost)],
-    labels = ["terra"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra-fcd",
+      resource_deps = ["terra-terrad", "terra-postgres"],
+      port_forwards = [port_forward(3060, name = "Terra FCD [:3060]", host = webHost)],
+      labels = ["terra"],
+      trigger_mode = trigger_mode,
+  )
 
-# terra 2 devnet
+  # terra 2 devnet
 
-docker_build(
-    ref = "terra2-image",
-    context = "./cosmwasm/devnet",
-    dockerfile = "cosmwasm/devnet/Dockerfile",
-)
+  docker_build(
+      ref = "terra2-image",
+      context = "./cosmwasm/devnet",
+      dockerfile = "cosmwasm/devnet/Dockerfile",
+  )
 
-docker_build(
-    ref = "terra2-contracts",
-    context = "./cosmwasm",
-    dockerfile = "./cosmwasm/Dockerfile",
-)
+  docker_build(
+      ref = "terra2-contracts",
+      context = "./cosmwasm",
+      dockerfile = "./cosmwasm/Dockerfile",
+  )
 
-k8s_yaml_with_ns("devnet/terra2-devnet.yaml")
+  k8s_yaml_with_ns("devnet/terra2-devnet.yaml")
 
-k8s_resource(
-    "terra2-terrad",
-    port_forwards = [
-        port_forward(26658, container_port = 26657, name = "Terra 2 RPC [:26658]", host = webHost),
-        port_forward(1318, container_port = 1317, name = "Terra 2 LCD [:1318]", host = webHost),
-    ],
-    resource_deps = ["const-gen"],
-    labels = ["terra2"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra2-terrad",
+      port_forwards = [
+          port_forward(26658, container_port = 26657, name = "Terra 2 RPC [:26658]", host = webHost),
+          port_forward(1318, container_port = 1317, name = "Terra 2 LCD [:1318]", host = webHost),
+      ],
+      resource_deps = ["const-gen"],
+      labels = ["terra2"],
+      trigger_mode = trigger_mode,
+  )
 
-k8s_resource(
-    "terra2-postgres",
-    labels = ["terra2"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra2-postgres",
+      labels = ["terra2"],
+      trigger_mode = trigger_mode,
+  )
 
-k8s_resource(
-    "terra2-fcd",
-    resource_deps = ["terra2-terrad", "terra2-postgres"],
-    port_forwards = [port_forward(3061, container_port = 3060, name = "Terra 2 FCD [:3061]", host = webHost)],
-    labels = ["terra2"],
-    trigger_mode = trigger_mode,
-)
+  k8s_resource(
+      "terra2-fcd",
+      resource_deps = ["terra2-terrad", "terra2-postgres"],
+      port_forwards = [port_forward(3061, container_port = 3060, name = "Terra 2 FCD [:3061]", host = webHost)],
+      labels = ["terra2"],
+      trigger_mode = trigger_mode,
+  )
 
 if algorand:
     k8s_yaml_with_ns("devnet/algorand-devnet.yaml")
