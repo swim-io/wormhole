@@ -3,6 +3,7 @@ import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 
 const elliptic = require("elliptic");
 
+// copied from wormhole-icco
 export function signAndEncodeVaa(
   timestamp: number,
   nonce: number,
