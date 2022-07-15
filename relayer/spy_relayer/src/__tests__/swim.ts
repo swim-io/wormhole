@@ -20,82 +20,44 @@ import {
   parseSwimPayload
 } from "../utils/swim";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import {
+  toBigNumberHex,
+  encodeSwimPayload,
+  encodeTransferWithPoolPayload
+} from "./utils"
 
 setDefaultWasm("node");
 
 jest.setTimeout(10000);
-    /*
-      VAA structure:
-      VAA {
-        ...,
-        payload 3: {
-          ...,
-          swim payload: {
+/*
+  VAA structure:
+  VAA {
+    ...,
+    payload 3: {
+      ...,
+      swim payload: {
 
-          },
-        }
-      }
+      },
+    }
+  }
 
-      Parse flow (in parseAndValidateVaa in src/listener/validation.ts)
-      - VAA is a raw Uint8Array.
-      - raw Uint8Array goes into parseVaaTyped(), output is ParsedVaa<Uint8Array>
-      - ParsedVaa.payload is a Uint8Array, either payload1 or payload3, determined by first byte
-      - ParsedVaa.payload is sent to parseTransferWithArbPayload or parseTransferPayload (sdk/js/src/utils/parseVaa.ts)
-      - Buffer is created from ParsedVaa.payload Uint8Array, then passed into parseTransferWithArbPayload
-        parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
+  Parse flow (in parseAndValidateVaa in src/listener/validation.ts)
+  - VAA is a raw Uint8Array.
+  - raw Uint8Array goes into parseVaaTyped(), output is ParsedVaa<Uint8Array>
+  - ParsedVaa.payload is a Uint8Array, either payload1 or payload3, determined by first byte
+  - ParsedVaa.payload is sent to parseTransferWithArbPayload or parseTransferPayload (sdk/js/src/utils/parseVaa.ts)
+  - Buffer is created from ParsedVaa.payload Uint8Array, then passed into parseTransferWithArbPayload
+    parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
 
-      For parseSwimPayload, there's one more level.
-      - parsedVaaPayload contains an extraPayload field, which is a slice of a Buffer, so a Buffer
-      - This buffer is passed into parseSwimPayload
+  For parseSwimPayload, there's one more level.
+  - parsedVaaPayload contains an extraPayload field, which is a slice of a Buffer, so a Buffer
+  - This buffer is passed into parseSwimPayload
 
-      What this test is testing: parseSwimPayload
-      Input: Buffer
-      Output: object that looks like swim payload
-    */
+  What this test is testing: parseSwimPayload
+  Input: Buffer
+  Output: object that looks like swim payload
+*/
 
-// TODO put these functions somewhere else that makes more sense
-export function toBigNumberHex(value: BigNumberish, numBytes: number): string {
-  return BigNumber.from(value)
-    .toHexString()
-    .substring(2)
-    .padStart(numBytes * 2, "0");
-}
-
-function encodeSwimPayload(
-  swimMessageVersion: number,
-  targetChainRecipient: Buffer,
-  swimTokenNumber: number,
-  minimumOutputAmount: string,
-) {
-  // TODO encode rest of propeller parameters after design finalized
-  const encoded = Buffer.alloc(67);
-  encoded.writeUInt8(swimMessageVersion, 0);
-  encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
-  encoded.writeUInt16BE(swimTokenNumber, 33);
-  encoded.write(toBigNumberHex(minimumOutputAmount, 32), 35, "hex");
-  return encoded;
-}
-
-function encodeTransferWithPoolPayload(
-  amount: string,
-  originAddress: Buffer,
-  originChain: number,
-  targetAddress: Buffer,
-  targetChain: number,
-  fee: string,
-  swimPayload: Buffer
-) {
-  const encoded = Buffer.alloc(133 + 67); // TODO change this size once swim payload finalized
-  encoded.writeUInt8(3, 0); // this will always be payload type 3
-  encoded.write(toBigNumberHex(amount, 32), 1, "hex");
-  encoded.write(originAddress.toString("hex"), 33, "hex");
-  encoded.writeUInt16BE(originChain, 65);
-  encoded.write(targetAddress.toString("hex"), 67, "hex");
-  encoded.writeUInt16BE(targetChain, 99);
-  encoded.write(toBigNumberHex(fee, 32), 101, "hex");
-  encoded.write(swimPayload.toString("hex"), 133, "hex");
-  return encoded;
-}
 
 test("parseTransferWithPoolPayload", (done) => {
   (async() => {
@@ -106,13 +68,13 @@ test("parseTransferWithPoolPayload", (done) => {
       minimumOutputAmount: BigNumber.from(33)
     };
 
-    var encodedSwim = encodeSwimPayload(
+    const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
       swimPayload.swimTokenNumber,
       swimPayload.minimumOutputAmount.toString(),
     );
-    console.log(encodedSwim);
+    //console.log(encodedSwim);
 
     const transferWithPoolPayload = {
       amount: BigNumber.from(20),
@@ -124,7 +86,7 @@ test("parseTransferWithPoolPayload", (done) => {
       extraPayload: encodedSwim
     };
 
-    var encodedTransferWithPool = encodeTransferWithPoolPayload(
+    const encodedTransferWithPool = encodeTransferWithPoolPayload(
       transferWithPoolPayload.amount.toString(),
       // Note - tryNativeToHexString, then converting back into a native string will remove capitilization. Will be a problem
       // only if we want to use checksum to verify addresses https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
@@ -136,8 +98,8 @@ test("parseTransferWithPoolPayload", (done) => {
       transferWithPoolPayload.extraPayload
     )
 
-    var result = parseTransferWithArbPayload(encodedTransferWithPool);
-    console.log(result);
+    const result = parseTransferWithArbPayload(encodedTransferWithPool);
+    //console.log(result);
     /*
     // debug where address is no longer capitalized
     const address = transferWithPoolPayload.originAddress
@@ -155,8 +117,8 @@ test("parseTransferWithPoolPayload", (done) => {
     expect(result.fee).toEqual(transferWithPoolPayload.fee.toBigInt());
     expect(result.extraPayload).toEqual(transferWithPoolPayload.extraPayload);
 
-    var swimResult = parseSwimPayload(result.extraPayload);
-    console.log(swimResult);
+    const swimResult = parseSwimPayload(result.extraPayload);
+    //console.log(swimResult);
     expect(swimResult.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
     done();
   })();
@@ -164,8 +126,6 @@ test("parseTransferWithPoolPayload", (done) => {
 
 test("parseSwimPayload", (done) => {
   (async() => {
-
-
     const swimPayload = {
       swimMessageVersion: 1,
       targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
@@ -173,7 +133,7 @@ test("parseSwimPayload", (done) => {
       minimumOutputAmount: BigNumber.from(33)
     };
 
-    var encoded = encodeSwimPayload(
+    const encoded = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
       swimPayload.swimTokenNumber,
@@ -181,7 +141,7 @@ test("parseSwimPayload", (done) => {
     );
     //console.log(encoded);
 
-    var result = parseSwimPayload(encoded);
+    const result = parseSwimPayload(encoded);
     //console.log(result);
     expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(swimPayload.targetChainRecipient);
