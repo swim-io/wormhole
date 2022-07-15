@@ -62,7 +62,7 @@ export function validateInit(): boolean {
 
 export async function parseAndValidateVaa(
   rawVaa: Uint8Array
-): Promise<string | ParsedVaa<ParsedTransferPayload>> {
+): Promise<string | ParsedVaa<ParsedTransferPayload> | ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>> {
   logger.debug("About to validate: " + uint8ArrayToHex(rawVaa));
   let parsedVaa: ParsedVaa<Uint8Array> | null = null;
   try {
@@ -181,7 +181,7 @@ export async function parseAndValidateVaa(
 
   const key = getKey(parsedVaaPayload.originChain, originAddressNative as string); //was null checked above
 
-  const isQueued = await checkQueue(key);
+  const isQueued = await exports.checkQueue(key);
   if (isQueued) {
     return isQueued;
   }
@@ -191,7 +191,7 @@ export async function parseAndValidateVaa(
   return fullyTyped;
 }
 
-async function checkQueue(key: string): Promise<string | null> {
+export async function checkQueue(key: string): Promise<string | null> {
   try {
     const backupQueue = getBackupQueue();
     const queuedRecord = backupQueue.find((record) => {
@@ -264,4 +264,23 @@ export type ParsedTransferPayload = {
   targetAddress: Uint8Array; //hex
   targetChain: ChainId;
   fee?: BigInt;
+};
+
+export type ParsedTransferWithArbDataPayload<T> = {
+  amount: BigInt;
+  originAddress: Uint8Array; //hex
+  originChain: ChainId;
+  targetAddress: Uint8Array; //hex
+  targetChain: ChainId;
+  fee?: BigInt;
+  extraPayload: T;
+};
+
+export type ParsedSwimData = {
+  swimMessageVersion: number;
+  targetChainRecipient: Uint8Array; //hex
+  swimTokenNumber: number;
+  minimumOutputAmount: BigInt;
+  memoId: BigInt;
+  otherParameters: Uint8Array;
 };
