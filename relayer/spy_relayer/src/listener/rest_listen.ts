@@ -51,7 +51,9 @@ export async function run() {
   (async () => {
     app.get("/relayvaa/:vaa", async (req: Request, res: Response) => {
       try {
+        logger.debug("req.params.vaa: " + req.params.vaa)
         const vaaBuf = Uint8Array.from(Buffer.from(req.params.vaa, "base64"));
+        logger.debug("vaaBuf: " + vaaBuf);
         const hexVaa = uint8ArrayToHex(vaaBuf);
         const validationResults: ParsedVaa<ParsedTransferPayload> | string =
           await parseAndValidateVaa(vaaBuf);
