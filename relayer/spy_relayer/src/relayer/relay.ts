@@ -17,6 +17,7 @@ import { getRelayerEnvironment } from "../configureEnv";
 import { RelayResult, Status } from "../helpers/redisHelper";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import { PromHelper } from "../helpers/promHelpers";
+import { parseTransferWithArbPayload } from "../utils/swim";
 
 const logger = getLogger();
 
@@ -35,33 +36,40 @@ export async function relay(
   const logger = getScopedLogger(["relay"], relayLogger);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(signedVAA));
-  if (parsedVAA.payload[0] === 1) {
-    const transferPayload = parseTransferPayload(
-      Buffer.from(parsedVAA.payload)
-    );
+  if (parsedVAA.payload[0] === 1 || parsedVAA.payload[0] === 3) {
+    let parsedVAAPayload;
+    if (parsedVAA.payload[0] === 3) {
+      parsedVAAPayload = parseTransferWithArbPayload(
+        Buffer.from(parsedVAA.payload)
+      );
+    } else {
+      parsedVAAPayload = parseTransferPayload(
+        Buffer.from(parsedVAA.payload)
+      );
+    }
 
-    const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
+    const chainConfigInfo = getChainConfigInfo(parsedVAAPayload.targetChain);
     if (!chainConfigInfo) {
-      logger.error("relay: improper chain ID: " + transferPayload.targetChain);
+      logger.error("relay: improper chain ID: " + parsedVAAPayload.targetChain);
       return {
         status: Status.FatalError,
         result:
           "Fatal Error: target chain " +
-          transferPayload.targetChain +
+          parsedVAAPayload.targetChain +
           " not supported",
       };
     }
 
-    if (isEVMChain(transferPayload.targetChain)) {
+    if (isEVMChain(parsedVAAPayload.targetChain)) {
       const unwrapNative =
-        transferPayload.originChain === transferPayload.targetChain &&
+        parsedVAAPayload.originChain === parsedVAAPayload.targetChain &&
         hexToNativeString(
-          transferPayload.originAddress,
-          transferPayload.originChain
+          parsedVAAPayload.originAddress,
+          parsedVAAPayload.originChain
         )?.toLowerCase() === chainConfigInfo.wrappedAsset?.toLowerCase();
       logger.debug(
         "isEVMChain: originAddress: [" +
-          transferPayload.originAddress +
+          parsedVAAPayload.originAddress +
           "], wrappedAsset: [" +
           chainConfigInfo.wrappedAsset +
           "], unwrapNative: " +
@@ -82,7 +90,7 @@ export async function relay(
       };
     }
 
-    if (transferPayload.targetChain === CHAIN_ID_SOLANA) {
+    if (parsedVAAPayload.targetChain === CHAIN_ID_SOLANA) {
       let rResult: RelayResult = { status: Status.Error, result: "" };
       const retVal = await relaySolana(
         chainConfigInfo,
@@ -99,7 +107,7 @@ export async function relay(
       return rResult;
     }
 
-    if (transferPayload.targetChain === CHAIN_ID_TERRA) {
+    if (parsedVAAPayload.targetChain === CHAIN_ID_TERRA) {
       let rResult: RelayResult = { status: Status.Error, result: "" };
       const retVal = await relayTerra(
         chainConfigInfo,
@@ -118,7 +126,7 @@ export async function relay(
 
     logger.error(
       "relay: target chain ID: " +
-        transferPayload.targetChain +
+        parsedVAAPayload.targetChain +
         " is invalid, this is a program bug!"
     );
 
@@ -126,7 +134,7 @@ export async function relay(
       status: Status.FatalError,
       result:
         "Fatal Error: target chain " +
-        transferPayload.targetChain +
+        parsedVAAPayload.targetChain +
         " is invalid, this is a program bug!",
     };
   }
