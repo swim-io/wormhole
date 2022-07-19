@@ -91,7 +91,7 @@ export function encodeTransferWithPoolPayload(
   originChain: number,
   targetAddress: Buffer,
   targetChain: number,
-  fee: string,
+  senderAddress: Buffer,
   swimPayload: Buffer
 ) {
   const encoded = Buffer.alloc(133 + 67); // TODO change this size once swim payload finalized
@@ -101,7 +101,7 @@ export function encodeTransferWithPoolPayload(
   encoded.writeUInt16BE(originChain, 65);
   encoded.write(targetAddress.toString("hex"), 67, "hex");
   encoded.writeUInt16BE(targetChain, 99);
-  encoded.write(toBigNumberHex(fee, 32), 101, "hex");
+  encoded.write(senderAddress.toString("hex"), 101, "hex");
   encoded.write(swimPayload.toString("hex"), 133, "hex");
   return encoded;
 }

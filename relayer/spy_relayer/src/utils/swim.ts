@@ -12,16 +12,17 @@ import { BigNumber } from "@ethersproject/bignumber";
     64  u16      token_chain
     66  [u8; 32] recipient
     98  u16      recipient_chain
-    100 u256     fee
+    100 [u8; 32] sender_address
     132 [u8; ?]  extra_payload
      */
 export const parseTransferWithArbPayload = (arr: Buffer) => ({
     amount: BigNumber.from(arr.slice(1, 1 + 32)).toBigInt(),
+    // For whatever reason parseTransferWithPayload names these originAddress/Chain,
     originAddress: arr.slice(33, 33 + 32).toString("hex"),
     originChain: arr.readUInt16BE(65) as ChainId,
     targetAddress: arr.slice(67, 67 + 32).toString("hex"),
     targetChain: arr.readUInt16BE(99) as ChainId,
-    fee: BigNumber.from(arr.slice(101, 101 + 32)).toBigInt(),
+    senderAddress: arr.slice(101, 101 + 32).toString("hex"),
     extraPayload: arr.slice(133)
 });
 

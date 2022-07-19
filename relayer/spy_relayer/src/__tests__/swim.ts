@@ -14,6 +14,7 @@ import {
   ETH_PRIVATE_KEY,
   SOLANA_CORE_BRIDGE_ADDRESS,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
+  TEST_APPROVED_ETH_TOKEN,
 } from "./consts";
 import {
   parseTransferWithArbPayload,
@@ -82,7 +83,7 @@ test("parseTransferWithPoolPayload", (done) => {
       originChain: CHAIN_ID_ETH,
       targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
       targetChain: CHAIN_ID_SOLANA,
-      fee: BigNumber.from(2020),
+      senderAddress: ETH_PUBLIC_KEY.toLowerCase(),
       extraPayload: encodedSwim
     };
 
@@ -94,7 +95,7 @@ test("parseTransferWithPoolPayload", (done) => {
       transferWithPoolPayload.originChain,
       Buffer.from(tryNativeToHexString(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA), "hex"),
       transferWithPoolPayload.targetChain,
-      transferWithPoolPayload.fee.toString(),
+      Buffer.from(tryNativeToHexString(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH), "hex"),
       transferWithPoolPayload.extraPayload
     )
 
@@ -114,7 +115,7 @@ test("parseTransferWithPoolPayload", (done) => {
     expect(result.originChain).toEqual(transferWithPoolPayload.originChain);
     expect(tryHexToNativeString(result.targetAddress, CHAIN_ID_SOLANA)).toEqual(transferWithPoolPayload.targetAddress);
     expect(result.targetChain).toEqual(transferWithPoolPayload.targetChain);
-    expect(result.fee).toEqual(transferWithPoolPayload.fee.toBigInt());
+    expect(tryHexToNativeString(result.senderAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.senderAddress);
     expect(result.extraPayload).toEqual(transferWithPoolPayload.extraPayload);
 
     const swimResult = parseSwimPayload(result.extraPayload);
