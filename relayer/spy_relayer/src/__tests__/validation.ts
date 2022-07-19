@@ -62,7 +62,7 @@ describe("parseAndValidateVaa", () => {
         originChain: CHAIN_ID_ETH,
         targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
         targetChain: CHAIN_ID_SOLANA,
-        fee: BigNumber.from(2020),
+        senderAddress: ETH_PUBLIC_KEY,
         extraPayload: encodedSwim
       };
 
@@ -74,7 +74,7 @@ describe("parseAndValidateVaa", () => {
         transferWithPoolPayload.originChain,
         Buffer.from(tryNativeToHexString(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA), "hex"),
         transferWithPoolPayload.targetChain,
-        transferWithPoolPayload.fee.toString(),
+        Buffer.from(tryNativeToHexString(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH), "hex"),
         transferWithPoolPayload.extraPayload
       );
 
@@ -93,6 +93,7 @@ describe("parseAndValidateVaa", () => {
 
       const rawVaa = Uint8Array.from(encodedVaa);
       let result = await parseAndValidateVaa(rawVaa);
+      console.log(result);
       expect(typeof result).toBe("object");
       result = result as ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>;
       expect(result.timestamp).toBe(16);

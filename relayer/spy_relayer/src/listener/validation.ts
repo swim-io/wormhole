@@ -166,12 +166,17 @@ export async function parseAndValidateVaa(
     return "Token transfer is not for an approved token.";
   }
 
-  //TODO configurable
-  const sufficientFee = parsedVaaPayload.fee && parsedVaaPayload.fee > 0;
+  // fee check
+  if (payloadType === 3) {
+    logger.debug("TODO check fee from swim payload");
+  } else {
+    //TODO configurable
+    const sufficientFee = parsedVaaPayload.fee && parsedVaaPayload.fee > 0;
 
-  if (!sufficientFee) {
-    logger.debug("Token transfer does not have a sufficient fee.");
-    return "Token transfer does not have a sufficient fee.";
+    if (!sufficientFee) {
+      logger.debug("Token transfer does not have a sufficient fee.");
+      return "Token transfer does not have a sufficient fee.";
+    }
   }
 
   const key = getKey(parsedVaaPayload.originChain, originAddressNative as string); //was null checked above
