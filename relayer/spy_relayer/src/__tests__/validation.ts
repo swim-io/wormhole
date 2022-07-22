@@ -25,6 +25,7 @@ import {
   SOLANA_CORE_BRIDGE_ADDRESS,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
   TEST_APPROVED_ETH_TOKEN,
+  TEST_SWIM_EVM_ROUTING_ADDRESS,
 } from "./consts";
 import {
   signAndEncodeVaa,
@@ -38,7 +39,7 @@ setDefaultWasm("node");
 jest.setTimeout(10000);
 
 describe("parseAndValidateVaa", () => {
-  test("swim payload", (done) => {
+  test("successful swim payload", (done) => {
     (async() => {
       const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
 
@@ -62,7 +63,7 @@ describe("parseAndValidateVaa", () => {
         originChain: CHAIN_ID_ETH,
         targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
         targetChain: CHAIN_ID_SOLANA,
-        senderAddress: ETH_PUBLIC_KEY,
+        senderAddress: TEST_SWIM_EVM_ROUTING_ADDRESS,
         extraPayload: encodedSwim
       };
 
@@ -102,6 +103,64 @@ describe("parseAndValidateVaa", () => {
       expect(tryHexToNativeString(uint8ArrayToHex(result.emitterAddress), CHAIN_ID_ETH)).toBe(originAddress);
       expect(result.sequence).toBe(1);
       // TODO verify payload fields are the same
+      done();
+    })();
+  });
+
+  test("swim payload does not have expected SWIM_EVM_ROUTING_ADDRESS", (done) => {
+    (async() => {
+      const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
+
+      const swimPayload = {
+        swimMessageVersion: 1,
+        targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
+        swimTokenNumber: 1,
+        minimumOutputAmount: BigNumber.from(33)
+      };
+
+      const encodedSwim = encodeSwimPayload(
+        swimPayload.swimMessageVersion,
+        Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
+        swimPayload.swimTokenNumber,
+        swimPayload.minimumOutputAmount.toString(),
+      );
+
+      const transferWithPoolPayload = {
+        amount: BigNumber.from(20),
+        originAddress: originAddress,
+        originChain: CHAIN_ID_ETH,
+        targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
+        targetChain: CHAIN_ID_SOLANA,
+        senderAddress: "0x1111111111111111111111111111111111111111",
+        extraPayload: encodedSwim
+      };
+
+      const encodedTransferWithPool = encodeTransferWithPoolPayload(
+        transferWithPoolPayload.amount.toString(),
+        Buffer.from(tryNativeToHexString(transferWithPoolPayload.originAddress, CHAIN_ID_ETH), "hex"),
+        transferWithPoolPayload.originChain,
+        Buffer.from(tryNativeToHexString(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA), "hex"),
+        transferWithPoolPayload.targetChain,
+        Buffer.from(tryNativeToHexString(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH), "hex"),
+        transferWithPoolPayload.extraPayload
+      );
+
+      const validation = require("../listener/validation");
+      jest.spyOn(validation, 'checkQueue').mockReturnValue(null);
+
+      const encodedVaa = signAndEncodeVaa(
+        16,
+        32,
+        CHAIN_ID_ETH,
+        Buffer.from(tryNativeToHexString(originAddress, CHAIN_ID_ETH), "hex"),
+        1,
+        encodedTransferWithPool
+      )
+
+      const rawVaa = Uint8Array.from(encodedVaa);
+      let result = await parseAndValidateVaa(rawVaa);
+      expect(typeof result).toBe("string");
+
       done();
     })();
   });
