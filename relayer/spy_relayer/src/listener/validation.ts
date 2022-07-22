@@ -1,4 +1,11 @@
-import { ChainId } from "@certusone/wormhole-sdk";
+import {
+  ChainId,
+  hexToNativeString,
+  parseTransferPayload,
+  uint8ArrayToHex,
+  tryNativeToHexString,
+  CHAIN_ID_ETH
+} from "@certusone/wormhole-sdk";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { getListenerEnvironment } from "../configureEnv";
 import { getLogger } from "../helpers/logHelper";
@@ -133,6 +140,16 @@ export async function parseAndValidateVaa(
   }
 
   // TODO swim payload version check
+  if (swimPayload.swimMessageVersion !== 1) {
+    //logger.debug("swimMessageVersion is not 1");
+  }
+
+  // We should only be getting messages from one specific swim EVM routing contract.
+  if (parsedVaaPayload.senderAddress != tryNativeToHexString(env.swimEvmContractAddress, CHAIN_ID_ETH)) {
+    const error = "senderAddress is not the expected address, got " + parsedVaaPayload.senderAddress + " but should be " + env.swimEvmContractAddress;
+    logger.error(error);
+    return error;
+  }
 
   const originAddressNative = hexToNativeString(
     parsedVaaPayload.originAddress,

@@ -18,6 +18,7 @@ const ETH_PUBLIC_KEY = "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1";
 const SOLANA_TOKEN_BRIDGE_ADDRESS = "B6RHG3mfcckmrYN1UhmJzyS1XX3fZKbkeUcpJe9Sy3FE";
 const TEST_APPROVED_ETH_TOKEN = "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
 const TEST_APPROVED_SOL_TOKEN = "So11111111111111111111111111111111111111112";
+const TEST_SWIM_EVM_ROUTING_ADDRESS = "0x0290FB167208Af455bB137780163b7B7a9a10C16";
 
 // create a test VAA
 const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
@@ -42,7 +43,7 @@ const transferWithPoolPayload = {
   originChain: CHAIN_ID_ETH,
   targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
   targetChain: CHAIN_ID_SOLANA,
-  senderAddress: ETH_PUBLIC_KEY,
+  senderAddress: TEST_SWIM_EVM_ROUTING_ADDRESS,
   extraPayload: encodedSwim
 };
 
@@ -59,7 +60,7 @@ const encodedTransferWithPool = encodeTransferWithPoolPayload(
 );
 
 const encodedVaa = signAndEncodeVaa(
-  16,
+  17,
   32,
   CHAIN_ID_ETH,
   Buffer.from(tryNativeToHexString(originAddress, CHAIN_ID_ETH), "hex"),
@@ -67,14 +68,9 @@ const encodedVaa = signAndEncodeVaa(
   encodedTransferWithPool
 )
 
-//console.log(encodedVaa);
-
 const encoded64 = encodedVaa.toString('base64');
-console.log(encoded64);
+//console.log(encoded64);
 console.log("uri encoded: " + encodeURIComponent(encoded64));
 // curl -v localhost:4201/relayvaa/<encodeURIComponent(encoded64)>
-
-//const compare = Uint8Array.from(Buffer.from(encoded64, "base64"));
-//console.log("compare: " + compare);
 
 
