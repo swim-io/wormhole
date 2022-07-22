@@ -57,7 +57,7 @@ export function validateInit(): boolean {
 
 export async function parseAndValidateVaa(
   rawVaa: Uint8Array
-): Promise<string | ParsedVaa<ParsedTransferPayload> | ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>> {
+): Promise<string | ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>> {
   logger.debug("About to validate: " + uint8ArrayToHex(rawVaa));
   let parsedVaa: ParsedVaa<Uint8Array> | null = null;
   try {
@@ -106,47 +106,33 @@ export async function parseAndValidateVaa(
 
   const payloadType = parsedVaa.payload[0];
   let parsedVaaPayload: any = null;
-  if (payloadType === 3) {
-    try {
-      parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
-    } catch (e) {
-      logger.error("Encountered error while parsing vaa payload" + e);
-    }
-
-    if (!parsedVaaPayload) {
-      logger.debug("Failed to parse the transfer with data payload.");
-      return "Could not parse the transfer with data payload.";
-    }
-
-    // Make sure this is specifically a Swim Payload 3
-    let swimPayload: any = null;
-    try {
-      swimPayload = parseSwimPayload(Buffer.from(parsedVaaPayload.extraPayload));
-    } catch (e) {
-      logger.error("Encountered error while parsing swim payload from arbitrary data in payload 3" + e) ;
-      return "Could not parse swim payload";
-    }
-
-    // TODO swim payload version check
-
-  } else if (payloadType === 1) {
-    let parsedVaaPayload: any = null;
-    try {
-      parsedVaaPayload = parseTransferPayload(Buffer.from(parsedVaa.payload));
-    } catch (e) {
-      logger.error("Encountered error while parsing vaa payload" + e);
-    }
-
-    if (!parsedVaaPayload) {
-      logger.debug("Failed to parse the transfer payload.");
-      return "Could not parse the transfer payload.";
-    }
-
-  } else {
-    const error = "Specified vaa is not payload type 1 or swim payload"
+  if (payloadType !== 3) {
+    const error = "Specified vaa is not swim payload"
     logger.debug(error);
     return error
   }
+
+  try {
+    parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
+  } catch (e) {
+    logger.error("Encountered error while parsing vaa payload" + e);
+  }
+
+  if (!parsedVaaPayload) {
+    logger.debug("Failed to parse the transfer with data payload.");
+    return "Could not parse the transfer with data payload.";
+  }
+
+  // Make sure this is specifically a Swim Payload 3
+  let swimPayload: any = null;
+  try {
+    swimPayload = parseSwimPayload(Buffer.from(parsedVaaPayload.extraPayload));
+  } catch (e) {
+    logger.error("Encountered error while parsing swim payload from arbitrary data in payload 3" + e) ;
+    return "Could not parse swim payload";
+  }
+
+  // TODO swim payload version check
 
   const originAddressNative = hexToNativeString(
     parsedVaaPayload.originAddress,
@@ -166,18 +152,8 @@ export async function parseAndValidateVaa(
     return "Token transfer is not for an approved token.";
   }
 
-  // fee check
-  if (payloadType === 3) {
-    logger.debug("TODO check fee from swim payload");
-  } else {
-    //TODO configurable
-    const sufficientFee = parsedVaaPayload.fee && parsedVaaPayload.fee > 0;
-
-    if (!sufficientFee) {
-      logger.debug("Token transfer does not have a sufficient fee.");
-      return "Token transfer does not have a sufficient fee.";
-    }
-  }
+  // TODO fee check
+  logger.debug("TODO check fee from swim payload");
 
   const key = getKey(parsedVaaPayload.originChain, originAddressNative as string); //was null checked above
 
