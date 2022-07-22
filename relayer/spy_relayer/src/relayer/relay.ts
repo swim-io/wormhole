@@ -36,17 +36,10 @@ export async function relay(
   const logger = getScopedLogger(["relay"], relayLogger);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(signedVAA));
-  if (parsedVAA.payload[0] === 1 || parsedVAA.payload[0] === 3) {
-    let parsedVAAPayload;
-    if (parsedVAA.payload[0] === 3) {
-      parsedVAAPayload = parseTransferWithArbPayload(
-        Buffer.from(parsedVAA.payload)
-      );
-    } else {
-      parsedVAAPayload = parseTransferPayload(
-        Buffer.from(parsedVAA.payload)
-      );
-    }
+  if (parsedVAA.payload[0] === 3) {
+    let parsedVAAPayload = parseTransferWithArbPayload(
+      Buffer.from(parsedVAA.payload)
+    );
 
     const chainConfigInfo = getChainConfigInfo(parsedVAAPayload.targetChain);
     if (!chainConfigInfo) {
