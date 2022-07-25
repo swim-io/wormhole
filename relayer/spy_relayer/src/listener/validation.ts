@@ -1,7 +1,6 @@
 import {
   ChainId,
   hexToNativeString,
-  parseTransferPayload,
   uint8ArrayToHex,
   tryNativeToHexString,
   CHAIN_ID_ETH
@@ -265,7 +264,7 @@ export type ParsedTransferWithArbDataPayload<T> = {
   originChain: ChainId;
   targetAddress: Uint8Array; //hex
   targetChain: ChainId;
-  fee?: BigInt;
+  senderAddress: Uint8Array; //hex
   extraPayload: T;
 };
 
@@ -274,6 +273,4 @@ export type ParsedSwimData = {
   targetChainRecipient: Uint8Array; //hex
   swimTokenNumber: number;
   minimumOutputAmount: BigInt;
-  memoId: BigInt;
-  otherParameters: Uint8Array;
 };

@@ -28,6 +28,8 @@ import {
   parseAndValidateVaa,
   ParsedTransferPayload,
   ParsedVaa,
+  ParsedTransferWithArbDataPayload,
+  ParsedSwimData
 } from "./validation";
 
 let metrics: PromHelper;
@@ -149,7 +151,7 @@ async function processVaa(rawVaa: Uint8Array) {
   const vaaUri =
     vaaUriPrelude + encodeURIComponent(Buffer.from(rawVaa).toString("base64"));
 
-  const validationResults: ParsedVaa<ParsedTransferPayload> | string =
+  const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | string =
     await parseAndValidateVaa(rawVaa);
 
   metrics.incIncoming();
@@ -159,7 +161,7 @@ async function processVaa(rawVaa: Uint8Array) {
     return;
   }
 
-  const parsedVAA: ParsedVaa<ParsedTransferPayload> = validationResults;
+  const parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = validationResults;
 
   await pushVaaToRedis(parsedVAA, uint8ArrayToHex(rawVaa));
 }

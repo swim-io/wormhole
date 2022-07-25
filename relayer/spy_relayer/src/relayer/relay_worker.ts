@@ -1,4 +1,4 @@
-import { hexToUint8Array, parseTransferPayload } from "@certusone/wormhole-sdk";
+import { hexToUint8Array } from "@certusone/wormhole-sdk";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { getRelayerEnvironment, RelayerEnvironment } from "../configureEnv";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
@@ -19,6 +19,7 @@ import {
 } from "../helpers/redisHelper";
 import { sleep } from "../helpers/utils";
 import { relay } from "./relay";
+import { parseTransferWithArbPayload } from "../utils/swim";
 
 const WORKER_THREAD_RESTART_MS = 10 * 1000;
 const AUDITOR_THREAD_RESTART_MS = 10 * 1000;
@@ -141,7 +142,7 @@ async function doAuditorThread(workerInfo: WorkerInfo) {
           const { parse_vaa } = await importCoreWasm();
           const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
           const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-          const transferPayload = parseTransferPayload(payloadBuffer);
+          const transferPayload = parseTransferWithArbPayload(payloadBuffer);
 
           const chain = transferPayload.targetChain;
           if (chain !== workerInfo.targetChainId) {
@@ -322,7 +323,7 @@ async function processRequest(
     try {
       const { parse_vaa } = await importCoreWasm();
       const parsedVAA = parse_vaa(hexToUint8Array(payload.vaa_bytes));
-      const transferPayload = parseTransferPayload(
+      const transferPayload = parseTransferWithArbPayload(
         Buffer.from(parsedVAA.payload)
       );
       targetChain = transferPayload.targetChain;
@@ -390,7 +391,7 @@ async function findWorkableItems(
           const { parse_vaa } = await importCoreWasm();
           const parsedVAA = parse_vaa(hexToUint8Array(storePayload.vaa_bytes));
           const payloadBuffer: Buffer = Buffer.from(parsedVAA.payload);
-          const transferPayload = parseTransferPayload(payloadBuffer);
+          const transferPayload = parseTransferWithArbPayload(payloadBuffer);
           const tgtChainId = transferPayload.targetChain;
           if (tgtChainId !== workerInfo.targetChainId) {
             // Skipping mismatched chainId

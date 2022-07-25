@@ -13,8 +13,9 @@ import {
 } from "../helpers/redisHelper";
 import {
   parseAndValidateVaa,
-  ParsedTransferPayload,
   ParsedVaa,
+  ParsedTransferWithArbDataPayload,
+  ParsedSwimData
 } from "./validation";
 
 let logger = getLogger();
@@ -55,7 +56,7 @@ export async function run() {
         const vaaBuf = Uint8Array.from(Buffer.from(req.params.vaa, "base64"));
         logger.debug("vaaBuf: " + vaaBuf);
         const hexVaa = uint8ArrayToHex(vaaBuf);
-        const validationResults: ParsedVaa<ParsedTransferPayload> | string =
+        const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | string =
           await parseAndValidateVaa(vaaBuf);
 
         if (typeof validationResults === "string") {

@@ -35,3 +35,5 @@ test("should correctly increment sourceToTargetMap", async () => {
   expect(sourceToTargetMap[3][1]).toBe(0);
   expect(sourceToTargetMap[3][10]).toBe(1);
 });
+
+// test swim payload serailzes correctly

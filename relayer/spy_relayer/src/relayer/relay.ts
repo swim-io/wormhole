@@ -7,7 +7,6 @@ import {
   hexToNativeString,
   hexToUint8Array,
   isEVMChain,
-  parseTransferPayload,
 } from "@certusone/wormhole-sdk";
 
 import { relayEVM } from "./evm";

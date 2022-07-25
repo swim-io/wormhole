@@ -2,17 +2,17 @@ import {
   ChainId,
   hexToUint8Array,
   importCoreWasm,
-  parseTransferPayload,
   uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import { Mutex } from "async-mutex";
 import { createClient, RedisClientType } from "redis";
 import { getCommonEnvironment } from "../configureEnv";
-import { ParsedTransferPayload, ParsedVaa } from "../listener/validation";
+import { ParsedTransferWithArbDataPayload, ParsedSwimData, ParsedVaa } from "../listener/validation";
 import { chainIDStrings } from "../utils/wormhole";
 import { getScopedLogger } from "./logHelper";
 import { PromHelper } from "./promHelpers";
 import { sleep } from "./utils";
+import { parseTransferWithArbPayload } from "../utils/swim";
 
 const logger = getScopedLogger(["redisHelper"]);
 const commonEnv = getCommonEnvironment();
@@ -206,7 +206,7 @@ export function initPayloadWithVAA(vaa_bytes: string): StorePayload {
 }
 
 export function storeKeyFromParsedVAA(
-  parsedVAA: ParsedVaa<ParsedTransferPayload>
+  parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>
 ): StoreKey {
   return {
     chain_id: parsedVAA.emitterChain as number,
@@ -236,7 +236,7 @@ export function resetPayload(storePayload: StorePayload): StorePayload {
 }
 
 export async function pushVaaToRedis(
-  parsedVAA: ParsedVaa<ParsedTransferPayload>,
+  parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>,
   hexVaa: string
 ) {
   const transferPayload = parsedVAA.payload;
@@ -258,8 +258,8 @@ export async function pushVaaToRedis(
       transferPayload.targetAddress +
       "],  amount: " +
       transferPayload.amount +
-      "],  fee: " +
-      transferPayload.fee +
+      "],  senderAddress: " +
+      transferPayload.senderAddress +
       ", "
   );
   const storeKey = storeKeyFromParsedVAA(parsedVAA);
@@ -347,7 +347,7 @@ export async function incrementSourceToTargetMap(
   if (!si_value) {
     return;
   }
-  const parsedPayload = parseTransferPayload(
+  const parsedPayload = parseTransferWithArbPayload(
     Buffer.from(
       parse_vaa(hexToUint8Array(storePayloadFromJson(si_value).vaa_bytes))
         .payload
