@@ -144,8 +144,9 @@ export async function parseAndValidateVaa(
   }
 
   // We should only be getting messages from one specific swim EVM routing contract.
-  if (parsedVaaPayload.senderAddress != tryNativeToHexString(env.swimEvmContractAddress, CHAIN_ID_ETH)) {
-    const error = "senderAddress is not the expected address, got " + parsedVaaPayload.senderAddress + " but should be " + env.swimEvmContractAddress;
+  const expectedSwimEvmContractAddress = tryNativeToHexString(env.swimEvmContractAddress, CHAIN_ID_ETH);
+  if (parsedVaaPayload.senderAddress != expectedSwimEvmContractAddress) {
+    const error = "senderAddress is not the expected address, got " + parsedVaaPayload.senderAddress + " but should be " + expectedSwimEvmContractAddress;
     logger.error(error);
     return error;
   }
@@ -179,7 +180,7 @@ export async function parseAndValidateVaa(
   }
   //TODO maybe an is redeemed check?
 
-  const fullyTyped = { ...parsedVaa, payload: parsedVaaPayload };
+  const fullyTyped = { ...parsedVaa, payload: { ...parsedVaaPayload, extraPayload: swimPayload }};
   return fullyTyped;
 }
 

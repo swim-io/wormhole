@@ -22,28 +22,29 @@ const TEST_SWIM_EVM_ROUTING_ADDRESS = "0x0290FB167208Af455bB137780163b7B7a9a10C1
 
 // create a test VAA
 const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
+const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
 
 const swimPayload = {
   swimMessageVersion: 1,
-  targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
+  targetChainRecipient: Uint8Array.from(Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex")),
   swimTokenNumber: 1,
   minimumOutputAmount: BigNumber.from(33)
 };
 
 const encodedSwim = encodeSwimPayload(
   swimPayload.swimMessageVersion,
-  Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
+  Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex"),
   swimPayload.swimTokenNumber,
   swimPayload.minimumOutputAmount.toString(),
 );
 
 const transferWithPoolPayload = {
   amount: BigNumber.from(20),
-  originAddress: originAddress,
+  originAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(originAddress, CHAIN_ID_ETH), "hex")),
   originChain: CHAIN_ID_ETH,
-  targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
+  targetAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex")),
   targetChain: CHAIN_ID_SOLANA,
-  senderAddress: TEST_SWIM_EVM_ROUTING_ADDRESS,
+  senderAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(TEST_SWIM_EVM_ROUTING_ADDRESS, CHAIN_ID_ETH), "hex")),
   extraPayload: encodedSwim
 };
 
@@ -51,11 +52,11 @@ const encodedTransferWithPool = encodeTransferWithPoolPayload(
   transferWithPoolPayload.amount.toString(),
   // Note - tryNativeToHexString, then converting back into a native string will remove capitilization. Will be a problem
   // only if we want to use checksum to verify addresses https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
-  Buffer.from(tryNativeToHexString(transferWithPoolPayload.originAddress, CHAIN_ID_ETH), "hex"),
+  Buffer.from(tryNativeToHexString(originAddress, CHAIN_ID_ETH), "hex"),
   transferWithPoolPayload.originChain,
-  Buffer.from(tryNativeToHexString(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA), "hex"),
+  Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex"),
   transferWithPoolPayload.targetChain,
-  Buffer.from(tryNativeToHexString(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH), "hex"),
+  Buffer.from(tryNativeToHexString(TEST_SWIM_EVM_ROUTING_ADDRESS, CHAIN_ID_ETH), "hex"),
   transferWithPoolPayload.extraPayload
 );
 
@@ -64,7 +65,7 @@ const encodedVaa = signAndEncodeVaa(
   32,
   CHAIN_ID_ETH,
   Buffer.from(tryNativeToHexString(originAddress, CHAIN_ID_ETH), "hex"),
-  1,
+  2,
   encodedTransferWithPool
 )
 
