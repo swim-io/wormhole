@@ -61,7 +61,7 @@ export async function run() {
 
         if (typeof validationResults === "string") {
           logger.debug("Rejecting REST request due validation failure");
-          res.status(400).json({ message: "Rejecting REST request due validation failure"});
+          res.status(400).json({ message: `Rejecting REST request due validation failure: ${validationResults}`});
           return;
         }
 
