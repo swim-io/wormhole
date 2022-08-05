@@ -24,7 +24,9 @@ import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import {
   toBigNumberHex,
   encodeSwimPayload,
-  encodeTransferWithPoolPayload
+  encodeTransferWithPoolPayload,
+  convertAddressToHexBuffer,
+  convertAddressToUint8,
 } from "./utils"
 
 setDefaultWasm("node");
@@ -60,94 +62,82 @@ jest.setTimeout(10000);
 */
 
 
-test("parseTransferWithPoolPayload", (done) => {
-  (async() => {
-    const swimPayload = {
-      swimMessageVersion: 1,
-      targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
-      swimTokenNumber: 1,
-      minimumOutputAmount: BigNumber.from(33)
-    };
+test("parseTransferWithPoolPayload", () => {
+  const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
 
-    const encodedSwim = encodeSwimPayload(
-      swimPayload.swimMessageVersion,
-      Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
-      swimPayload.swimTokenNumber,
-      swimPayload.minimumOutputAmount.toString(),
-    );
-    //console.log(encodedSwim);
+  const swimPayload = {
+    swimMessageVersion: 1,
+    targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+    swimTokenNumber: 1,
+    minimumOutputAmount: BigNumber.from(33)
+  };
 
-    const transferWithPoolPayload = {
-      amount: BigNumber.from(20),
-      originAddress: ETH_PUBLIC_KEY.toLowerCase(),
-      originChain: CHAIN_ID_ETH,
-      targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
-      targetChain: CHAIN_ID_SOLANA,
-      senderAddress: ETH_PUBLIC_KEY.toLowerCase(),
-      extraPayload: encodedSwim
-    };
+  const encodedSwim = encodeSwimPayload(
+    swimPayload.swimMessageVersion,
+    convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+    swimPayload.swimTokenNumber,
+    swimPayload.minimumOutputAmount.toString(),
+  );
+  //console.log(encodedSwim);
 
-    const encodedTransferWithPool = encodeTransferWithPoolPayload(
-      transferWithPoolPayload.amount.toString(),
-      // Note - tryNativeToHexString, then converting back into a native string will remove capitilization. Will be a problem
-      // only if we want to use checksum to verify addresses https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
-      Buffer.from(tryNativeToHexString(transferWithPoolPayload.originAddress, CHAIN_ID_ETH), "hex"),
-      transferWithPoolPayload.originChain,
-      Buffer.from(tryNativeToHexString(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA), "hex"),
-      transferWithPoolPayload.targetChain,
-      Buffer.from(tryNativeToHexString(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH), "hex"),
-      transferWithPoolPayload.extraPayload
-    )
+  const transferWithPoolPayload = {
+    amount: BigNumber.from(20),
+    originAddress: ETH_PUBLIC_KEY.toLowerCase(),
+    originChain: CHAIN_ID_ETH,
+    targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
+    targetChain: CHAIN_ID_SOLANA,
+    senderAddress: ETH_PUBLIC_KEY.toLowerCase(),
+    extraPayload: encodedSwim
+  };
 
-    const result = parseTransferWithArbPayload(encodedTransferWithPool);
-    //console.log(result);
-    /*
-    // debug where address is no longer capitalized
-    const address = transferWithPoolPayload.originAddress
-    console.log(transferWithPoolPayload.originAddress);
-    console.log(arrayify(address));
-    console.log(zeroPad(arrayify(address), 32));
-    console.log(uint8ArrayToHex(zeroPad(arrayify(address), 32))); // this statement is where all hex chars turn to lowercase
-    */
+  const encodedTransferWithPool = encodeTransferWithPoolPayload(
+    transferWithPoolPayload.amount.toString(),
+    // Note - tryNativeToHexString, then converting back into a native string will remove capitilization. Will be a problem
+    // only if we want to use checksum to verify addresses https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
+    convertAddressToHexBuffer(transferWithPoolPayload.originAddress, CHAIN_ID_ETH),
+    transferWithPoolPayload.originChain,
+    convertAddressToHexBuffer(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA),
+    transferWithPoolPayload.targetChain,
+    convertAddressToHexBuffer(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH),
+    transferWithPoolPayload.extraPayload
+  )
 
-    expect(result.amount).toEqual(transferWithPoolPayload.amount.toBigInt());
-    expect(tryHexToNativeString(result.originAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.originAddress);
-    expect(result.originChain).toEqual(transferWithPoolPayload.originChain);
-    expect(tryHexToNativeString(result.targetAddress, CHAIN_ID_SOLANA)).toEqual(transferWithPoolPayload.targetAddress);
-    expect(result.targetChain).toEqual(transferWithPoolPayload.targetChain);
-    expect(tryHexToNativeString(result.senderAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.senderAddress);
-    expect(result.extraPayload).toEqual(transferWithPoolPayload.extraPayload);
+  const result = parseTransferWithArbPayload(encodedTransferWithPool);
 
-    const swimResult = parseSwimPayload(result.extraPayload);
-    //console.log(swimResult);
-    expect(swimResult.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
-    done();
-  })();
+  expect(result.amount).toEqual(transferWithPoolPayload.amount.toBigInt());
+  expect(tryHexToNativeString(result.originAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.originAddress);
+  expect(result.originChain).toEqual(transferWithPoolPayload.originChain);
+  expect(tryHexToNativeString(result.targetAddress, CHAIN_ID_SOLANA)).toEqual(transferWithPoolPayload.targetAddress);
+  expect(result.targetChain).toEqual(transferWithPoolPayload.targetChain);
+  expect(tryHexToNativeString(result.senderAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.senderAddress);
+  expect(result.extraPayload).toEqual(transferWithPoolPayload.extraPayload);
+
+  const swimResult = parseSwimPayload(result.extraPayload);
+  //console.log(swimResult);
+  expect(swimResult.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
 });
 
-test("parseSwimPayload", (done) => {
-  (async() => {
-    const swimPayload = {
-      swimMessageVersion: 1,
-      targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
-      swimTokenNumber: 1,
-      minimumOutputAmount: BigNumber.from(33)
-    };
+test("parseSwimPayload", async () => {
+  const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+  const swimPayload = {
+    swimMessageVersion: 1,
+    targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+    swimTokenNumber: 1,
+    minimumOutputAmount: BigNumber.from(33)
+  };
 
-    const encoded = encodeSwimPayload(
-      swimPayload.swimMessageVersion,
-      Buffer.from(tryNativeToHexString(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA), "hex"),
-      swimPayload.swimTokenNumber,
-      swimPayload.minimumOutputAmount.toString(),
-    );
-    //console.log(encoded);
+  const encoded = encodeSwimPayload(
+    swimPayload.swimMessageVersion,
+    convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+    swimPayload.swimTokenNumber,
+    swimPayload.minimumOutputAmount.toString(),
+  );
+  //console.log(encoded);
 
-    const result = parseSwimPayload(encoded);
-    //console.log(result);
-    expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
-    expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(swimPayload.targetChainRecipient);
-    expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-    expect(result.minimumOutputAmount).toBe(swimPayload.minimumOutputAmount.toBigInt());
-    done();
-  })();
+  const result = parseSwimPayload(encoded);
+  //console.log(result);
+  expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
+  expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
+  expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
+  expect(result.minimumOutputAmount).toBe(swimPayload.minimumOutputAmount.toBigInt());
 });

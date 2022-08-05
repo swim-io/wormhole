@@ -34,7 +34,9 @@ import { BigNumber } from "@ethersproject/bignumber";
 import {
   signAndEncodeVaa,
   encodeSwimPayload,
-  encodeTransferWithPoolPayload
+  encodeTransferWithPoolPayload,
+  convertAddressToHexBuffer,
+  convertAddressToUint8,
 } from "../__tests__/utils";
 
 
@@ -66,35 +68,35 @@ const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
 
 const parsedSwimData = {
   swimMessageVersion: 1,
-  targetChainRecipient: Uint8Array.from(Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex")),
+  targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
   swimTokenNumber: 2,
   minimumOutputAmount: BigInt(20),
 }
 
 const encodedSwim = encodeSwimPayload(
   parsedSwimData.swimMessageVersion,
-  Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex"),
+  convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
   parsedSwimData.swimTokenNumber,
   parsedSwimData.minimumOutputAmount.toString(),
 );
 
 const parsedTransferWithPoolPayload = {
   amount: BigInt(20),
-  originAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex")),
+  originAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
   originChain: CHAIN_ID_ETH,
-  targetAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex")),
+  targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
   targetChain: CHAIN_ID_SOLANA,
-  senderAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex")),
+  senderAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
   extraPayload: parsedSwimData
 };
 
 const encodedTransferWithPool = encodeTransferWithPoolPayload(
   parsedTransferWithPoolPayload.amount.toString(),
-  Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex"),
+  convertAddressToHexBuffer(emitterAddressStr, CHAIN_ID_ETH),
   parsedTransferWithPoolPayload.originChain,
-  Buffer.from(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA), "hex"),
+  convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
   parsedTransferWithPoolPayload.targetChain,
-  Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex"),
+  convertAddressToHexBuffer(emitterAddressStr, CHAIN_ID_ETH),
   encodedSwim // parsedTransferWithPoolPayload has the actual parsed swim payload, need encoded here
 );
 
@@ -102,7 +104,7 @@ const parsedVAA = {
   timestamp: 16,
   nonce: 32,
   emitterChain: CHAIN_ID_ETH,
-  emitterAddress: Uint8Array.from(Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex")),
+  emitterAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
   sequence: 1,
   consistencyLevel: 1,
   payload: parsedTransferWithPoolPayload
@@ -112,31 +114,25 @@ const encodedVaa = signAndEncodeVaa(
   parsedVAA.timestamp,
   parsedVAA.nonce,
   parsedVAA.emitterChain,
-  Buffer.from(tryNativeToHexString(emitterAddressStr, CHAIN_ID_ETH), "hex"),
+  convertAddressToHexBuffer(emitterAddressStr, CHAIN_ID_ETH),
   parsedVAA.sequence,
   encodedTransferWithPool
 );
 
 describe("storeKey", () => {
-  test("storeKeyToJson and storeKeyFromJson", (done) => {
-    (async () => {
-      const storeKey = storeKeyFromParsedVAA(parsedVAA);
-      const result = storeKeyFromJson(storeKeyToJson(storeKey));
-      expect(result).toEqual(storeKey);
-      done();
-    })();
+  test("storeKeyToJson and storeKeyFromJson", () => {
+    const storeKey = storeKeyFromParsedVAA(parsedVAA);
+    const result = storeKeyFromJson(storeKeyToJson(storeKey));
+    expect(result).toEqual(storeKey);
   })
 });
 
 describe("storePayload", () => {
-  test("storePayloadToJson and storePayloadFromJson", (done) => {
-    (async() => {
-      const uint8Vaa = Uint8Array.from(encodedVaa);
-      const hexVaa = uint8ArrayToHex(uint8Vaa);
-      const storePayload = initPayloadWithVAA(hexVaa);
-      const result = storePayloadFromJson(storePayloadToJson(storePayload));
-      expect(result).toEqual(storePayload);
-      done();
-    })();
+  test("storePayloadToJson and storePayloadFromJson", () => {
+    const uint8Vaa = Uint8Array.from(encodedVaa);
+    const hexVaa = uint8ArrayToHex(uint8Vaa);
+    const storePayload = initPayloadWithVAA(hexVaa);
+    const result = storePayloadFromJson(storePayloadToJson(storePayload));
+    expect(result).toEqual(storePayload);
   });
 });

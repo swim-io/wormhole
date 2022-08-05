@@ -209,9 +209,8 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   logger.info("Getting SWIM_EVM_ROUTING_ADDRESS...");
   if(!process.env.SWIM_EVM_ROUTING_ADDRESS) {
     throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
-  } else {
-    swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
   }
+  swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
 
   return {
     spyServiceHost,

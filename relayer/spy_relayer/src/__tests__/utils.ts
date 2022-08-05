@@ -1,5 +1,9 @@
 import keccak256 from "keccak256";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import {
+  ChainId,
+  tryNativeToHexString,
+} from "@certusone/wormhole-sdk";
 
 const elliptic = require("elliptic");
 
@@ -104,4 +108,12 @@ export function encodeTransferWithPoolPayload(
   encoded.write(senderAddress.toString("hex"), 101, "hex");
   encoded.write(swimPayload.toString("hex"), 133, "hex");
   return encoded;
+}
+
+export function convertAddressToHexBuffer(address: string, chain_id: ChainId): Buffer {
+  return Buffer.from(tryNativeToHexString(address, chain_id), "hex");
+}
+
+export function convertAddressToUint8(address: string, chain_id: ChainId): Uint8Array {
+  return Uint8Array.from(convertAddressToHexBuffer(address, chain_id));
 }
