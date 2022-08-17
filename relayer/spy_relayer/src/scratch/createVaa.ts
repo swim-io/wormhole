@@ -2,7 +2,7 @@ import {
   signAndEncodeVaa,
   encodeSwimPayload,
   encodeTransferWithPoolPayload
-} from "./__tests__/utils";
+} from "../__tests__/utils";
 import {
   CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,

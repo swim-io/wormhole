@@ -13,8 +13,8 @@
     "relay_only": "node lib/main.js --relay_only",
     "wallet_monitor_only": "node lib/main.js --wallet_monitor_only",
     "test": "jest --config jestconfig.json --verbose",
-    "scratch": "node lib/scratch.js",
-    "solana_scratch": "node lib/solana_scratch.js"
+    "createVaa": "node lib/scratch/createVaa.js",
+    "decodeVaa": "node lib/scratch/decodeVaa.js"
   },
   "author": "",
   "license": "Apache-2.0",

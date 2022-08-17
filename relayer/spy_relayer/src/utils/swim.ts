@@ -40,8 +40,9 @@ export const parseTransferWithArbPayload = (arr: Buffer) => ({
 export const parseSwimPayload = (arr: Buffer) => ({
     swimMessageVersion: arr.readUInt8(0),
     targetChainRecipient: arr.slice(1, 1 + 32).toString("hex"),
-    swimTokenNumber: arr.readUInt16BE(33),
-    minimumOutputAmount: BigNumber.from(arr.slice(35, 35 + 32)).toBigInt(),
+    // TODO as of 8/16/22 these are the only fields in SwimPayload. Update once routing contract is redeployed
+    //swimTokenNumber: arr.readUInt16BE(33),
+    //minimumOutputAmount: BigNumber.from(arr.slice(35, 35 + 32)).toBigInt(),
     //memoId: BigNumber.from(arr.slice(67, 67 + 16)).toBigInt(),
     //otherParameters: arr.slice(83)
 });
