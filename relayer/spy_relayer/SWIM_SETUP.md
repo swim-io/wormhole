@@ -7,6 +7,7 @@ be able to be used for other deployments as well.
 For testnet you'll need these things running:
 - A spy container reading from testnet wormhole guardians
 - A container running `npm run spy_relay`. Alternatively, you can have each portion of the engine running in separate containers. (see Tiltfile)
+- A container running redis
 
 ## Running a spy container on testnet wormhole:
 
@@ -22,6 +23,11 @@ spy --nodeKey /node.key --spyRPC "[::]:7073" --network /wormhole/testnet/2/1 --b
 ## Running spy relay:
 ```bash
 npm run spy_relay
+```
+
+## Running redis:
+```bash
+docker run --rm -p6379:6379 --name redis-docker -d redis
 ```
 
 # Config setup
