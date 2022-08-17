@@ -99,6 +99,7 @@ export async function relayEVM(
   const contractMethod = unwrapNative
     ? bridge.completeTransferAndUnwrapETH
     : bridge.completeTransfer;
+  // TODO add gasLimit from swimPayload here
   const tx = await contractMethod(signedVaaArray, overrides);
   logger.info("waiting for tx hash: %s", tx.hash);
   const receipt = await tx.wait();

@@ -13,8 +13,8 @@
     "relay_only": "node lib/main.js --relay_only",
     "wallet_monitor_only": "node lib/main.js --wallet_monitor_only",
     "test": "jest --config jestconfig.json --verbose",
-    "scratch": "node lib/scratch.js",
-    "solana_scratch": "node lib/solana_scratch.js"
+    "createVaa": "node lib/scratch/createVaa.js",
+    "decodeVaa": "node lib/scratch/decodeVaa.js"
   },
   "author": "",
   "license": "Apache-2.0",
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@celo-tools/celo-ethers-wrapper": "^0.1.0",
-    "@certusone/wormhole-sdk": "^0.3.8",
+    "@certusone/wormhole-sdk": "^0.5.0",
     "@certusone/wormhole-spydk": "^0.0.1",
     "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.24.0",

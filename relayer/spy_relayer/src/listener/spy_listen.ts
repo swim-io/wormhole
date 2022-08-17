@@ -62,9 +62,9 @@ export async function run(ph: PromHelper) {
     emitterFilter: { chainId: ChainId; emitterAddress: string };
   }[] = [];
   for (let i = 0; i < env.spyServiceFilters.length; i++) {
-    logger.info("Getting spyServiceFiltera " + i);
+    logger.debug("Getting spyServiceFiltera " + i);
     const filter = env.spyServiceFilters[i];
-    logger.info(
+    logger.debug(
       "Getting spyServiceFilter[" +
         i +
         "]: chainId = " +
@@ -82,17 +82,17 @@ export async function run(ph: PromHelper) {
         ),
       },
     };
-    logger.info("Getting spyServiceFilterc " + i);
-    logger.info(
+    logger.debug("Getting spyServiceFilterc " + i);
+    logger.debug(
       "adding filter: chainId: [" +
         typedFilter.emitterFilter.chainId +
         "], emitterAddress: [" +
         typedFilter.emitterFilter.emitterAddress +
         "]"
     );
-    logger.info("Getting spyServiceFilterd " + i);
+    logger.debug("Getting spyServiceFilterd " + i);
     typedFilters.push(typedFilter);
-    logger.info("Getting spyServiceFiltere " + i);
+    logger.debug("Getting spyServiceFiltere " + i);
   }
 
   logger.info(
@@ -151,6 +151,7 @@ async function processVaa(rawVaa: Uint8Array) {
   const vaaUri =
     vaaUriPrelude + encodeURIComponent(Buffer.from(rawVaa).toString("base64"));
 
+  logger.debug("processing rawVAA: " + uint8ArrayToHex(rawVaa));
   const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | string =
     await parseAndValidateVaa(rawVaa);
 
