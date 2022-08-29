@@ -9,6 +9,11 @@ For testnet you'll need these things running:
 - A container running `npm run spy_relay`. Alternatively, you can have each portion of the engine running in separate containers. (see Tiltfile)
 - A container running redis
 
+## Running redis:
+```bash
+docker run --rm -p6379:6379 --name redis-docker -d redis
+```
+
 ## Running a spy container on testnet wormhole:
 
 ```bash
@@ -25,11 +30,6 @@ spy --nodeKey /node.key --spyRPC "[::]:7073" --network /wormhole/testnet/2/1 --b
 npm run spy_relay
 ```
 
-## Running redis:
-```bash
-docker run --rm -p6379:6379 --name redis-docker -d redis
-```
-
 # Config setup
 
 You'll need a configuration file similar to `.env.sample`. If you're running each portion of the engine separately make sure
@@ -42,6 +42,7 @@ Variables to modify:
 2. `PRIVATE_KEYS` - Private keys of engine wallets, one private key per chain.
 3. `SUPPORTED_TOKENS` - array of JSON objects with supported tokens and their chain IDs. Used for validation on listener.
 4. `SPY_SERVICE_FILTERS` - only allows VAAs that are from the corresponding contract address + chain ID combo to be processed by the engine.
+5. `SWIM_EVM_ROUTING_ADDRESS` - address of routing contract. Need this to validate where VAAs are coming from as well as to relay them.
 
 
 ## `PRIVATE_KEYS`
