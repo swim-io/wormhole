@@ -8,7 +8,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { arrayify, zeroPad } from "@ethersproject/bytes";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
-import { describe, expect, jest, test } from "@jest/globals";
+import { describe, expect, jest, test, it } from "@jest/globals";
 import {
   ETH_PUBLIC_KEY,
   ETH_PRIVATE_KEY,
@@ -113,39 +113,92 @@ test("parseTransferWithPoolPayload", () => {
   expect(tryHexToNativeString(result.targetAddress, CHAIN_ID_SOLANA)).toEqual(transferWithPoolPayload.targetAddress);
   expect(result.targetChain).toEqual(transferWithPoolPayload.targetChain);
   expect(tryHexToNativeString(result.senderAddress, CHAIN_ID_ETH)).toEqual(transferWithPoolPayload.senderAddress);
-  console.log("result extraPayload", result.extraPayload);
-  console.log("og payload", transferWithPoolPayload.extraPayload);
   expect(result.extraPayload).toEqual(transferWithPoolPayload.extraPayload);
 
   const swimResult = parseSwimPayload(result.extraPayload);
   expect(swimResult.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
 });
 
-test("parseSwimPayload", async () => {
-  const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
-  const swimPayload = {
-    swimMessageVersion: 1,
-    targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
-    propellerEnabled: true,
-    gasKickstartEnabled: true,
-    swimTokenNumber: 1,
-    memoId: BigNumber.from(33)
-  };
+describe("parseSwimPayload", () => {
+  it("with all fields", async() => {
+    const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const swimPayload = {
+      swimMessageVersion: 1,
+      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      propellerEnabled: true,
+      gasKickstartEnabled: true,
+      swimTokenNumber: 1,
+      memoId: BigNumber.from(33)
+    };
 
-  const encodedSwim = encodeSwimPayload(
-    swimPayload.swimMessageVersion,
-    convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
-    swimPayload.propellerEnabled,
-    swimPayload.gasKickstartEnabled,
-    swimPayload.swimTokenNumber,
-    swimPayload.memoId.toString(),
-  );
+    const encodedSwim = encodeSwimPayload(
+      swimPayload.swimMessageVersion,
+      convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+      swimPayload.propellerEnabled,
+      swimPayload.gasKickstartEnabled,
+      swimPayload.swimTokenNumber,
+      swimPayload.memoId.toString(),
+    );
 
-  const result = parseSwimPayload(encodedSwim);
-  expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
-  expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
-  expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
-  expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
-  expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-  expect(result.memoId).toBe(swimPayload.memoId.toBigInt());
-});
+    const result = parseSwimPayload(encodedSwim);
+    expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
+    expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
+    expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
+    expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
+    expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
+    expect(result.memoId).toBe(swimPayload.memoId.toBigInt());
+  });
+
+  it("with no memo field", async () => {
+    const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const swimPayload = {
+      swimMessageVersion: 1,
+      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      propellerEnabled: true,
+      gasKickstartEnabled: true,
+      swimTokenNumber: 1
+    };
+  
+    const encodedSwim = encodeSwimPayload(
+      swimPayload.swimMessageVersion,
+      convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+      swimPayload.propellerEnabled,
+      swimPayload.gasKickstartEnabled,
+      swimPayload.swimTokenNumber,
+      null
+    );
+  
+    const result = parseSwimPayload(encodedSwim);
+    expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
+    expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
+    expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
+    expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
+    expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
+    expect(result.memoId).toBe(0n);
+  });
+
+  it("only swimMessageVersion and targetChainRecipient", async() => {
+    const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const swimPayload = {
+      swimMessageVersion: 1,
+      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+    };
+  
+    const encodedSwim = encodeSwimPayload(
+      swimPayload.swimMessageVersion,
+      convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+      null,
+      null,
+      null,
+      null
+    );
+  
+    const result = parseSwimPayload(encodedSwim);
+    expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
+    expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
+    expect(result.propellerEnabled).toBe(false);
+    expect(result.gasKickstartEnabled).toBe(false);
+    expect(result.swimTokenNumber).toBe(0);
+    expect(result.memoId).toBe(0n);
+  });
+})

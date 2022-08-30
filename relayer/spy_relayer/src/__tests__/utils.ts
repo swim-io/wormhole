@@ -79,10 +79,10 @@ export function toBigNumberHex(value: BigNumberish, numBytes: number): string {
 export function encodeSwimPayload(
   swimMessageVersion: number,
   targetChainRecipient: Buffer,
-  propellerEnabled: boolean,
-  gasKickstartEnabled: boolean,
-  swimTokenNumber: number,
-  memoId: string
+  propellerEnabled: boolean | null,
+  gasKickstartEnabled: boolean | null,
+  swimTokenNumber: number | null,
+  memoId: string | null
 ) {
   // TODO encode rest of propeller parameters after design finalized
   const encoded = Buffer.alloc(53);
@@ -90,8 +90,10 @@ export function encodeSwimPayload(
   encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
   encoded.writeUInt8(propellerEnabled ? 1 : 0, 33);
   encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
-  encoded.writeUInt16BE(swimTokenNumber, 35);
-  encoded.write(toBigNumberHex(memoId, 16), 37, "hex");
+  if (swimTokenNumber) 
+    encoded.writeUInt16BE(swimTokenNumber, 35);
+  if (memoId) 
+    encoded.write(toBigNumberHex(memoId, 16), 37, "hex");
   return encoded;
 }
 
