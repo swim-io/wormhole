@@ -8,7 +8,8 @@ import {
   CHAIN_ID_SOLANA,
   uint8ArrayToHex,
   tryNativeToHexString,
-  tryHexToNativeString
+  tryHexToNativeString,
+  tryUint8ArrayToNative
 } from "@certusone/wormhole-sdk";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { describe, expect, jest, test } from "@jest/globals";
@@ -33,6 +34,7 @@ import {
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
   convertAddressToUint8,
+  convertUint8ToAddress
 } from "./utils";
 import { BigNumber } from "@ethersproject/bignumber";
 
@@ -48,15 +50,19 @@ describe("parseAndValidateVaa", () => {
     const swimPayload = {
       swimMessageVersion: 1,
       targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      propellerEnabled: true,
+      gasKickstartEnabled: true,
       swimTokenNumber: 1,
-      minimumOutputAmount: BigNumber.from(33)
+      memoId: BigNumber.from(33)
     };
 
     const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      swimPayload.propellerEnabled,
+      swimPayload.gasKickstartEnabled,
       swimPayload.swimTokenNumber,
-      swimPayload.minimumOutputAmount.toString(),
+      swimPayload.memoId.toString(),
     );
 
     const transferWithPoolPayload = {
@@ -102,33 +108,54 @@ describe("parseAndValidateVaa", () => {
     expect(result.timestamp).toBe(16);
     expect(result.nonce).toBe(32);
     expect(result.emitterChain).toBe(CHAIN_ID_ETH);
-    expect(tryHexToNativeString(uint8ArrayToHex(result.emitterAddress), CHAIN_ID_ETH)).toBe(originAddress);
+    expect(convertUint8ToAddress(result.emitterAddress, CHAIN_ID_ETH)).toBe(originAddress);
     expect(result.sequence).toBe(1);
-    // TODO verify payload fields are the same
+    // Verify payload fields are the same
+
+    /*
+    expect(result.payload.amount).toBe(transferWithPoolPayload.amount.toBigInt());
+    console.log('here');
+    console.log(result.payload.originAddress);
+    console.log(tryUint8ArrayToNative(result.payload.originAddress, CHAIN_ID_ETH));
+    console.log(convertUint8ToAddress(transferWithPoolPayload.originAddress, CHAIN_ID_ETH));
+    expect(result.payload.originAddress).toBe(convertUint8ToAddress(transferWithPoolPayload.originAddress, CHAIN_ID_ETH));
+    expect(result.payload.originChain).toBe(transferWithPoolPayload.originChain);
+    expect(convertUint8ToAddress(result.payload.targetAddress, CHAIN_ID_SOLANA)).toBe(transferWithPoolPayload.targetAddress);
+    expect(result.payload.targetChain).toBe(transferWithPoolPayload.targetChain);
+    expect(convertUint8ToAddress(result.payload.senderAddress, CHAIN_ID_ETH)).toBe(transferWithPoolPayload.senderAddress);
+    */
+
+    // TODO Verify extraPayload fields are the same once swimPayload design is finalized
+    const resultSwimPayload = result.payload.extraPayload;
   });
 
   test("swim payload does not have expected SWIM_EVM_ROUTING_ADDRESS", async () => {
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
+    const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
 
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: SOLANA_TOKEN_BRIDGE_ADDRESS,
+      targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      propellerEnabled: true,
+      gasKickstartEnabled: true,
       swimTokenNumber: 1,
-      minimumOutputAmount: BigNumber.from(33)
+      memoId: BigNumber.from(33)
     };
 
     const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
-      convertAddressToHexBuffer(swimPayload.targetChainRecipient, CHAIN_ID_SOLANA),
+      convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      swimPayload.propellerEnabled,
+      swimPayload.gasKickstartEnabled,
       swimPayload.swimTokenNumber,
-      swimPayload.minimumOutputAmount.toString(),
+      swimPayload.memoId.toString(),
     );
 
     const transferWithPoolPayload = {
       amount: BigNumber.from(20),
-      originAddress: originAddress,
+      originAddress: convertAddressToUint8(originAddress, CHAIN_ID_ETH),
       originChain: CHAIN_ID_ETH,
-      targetAddress: SOLANA_TOKEN_BRIDGE_ADDRESS,
+      targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
       targetChain: CHAIN_ID_SOLANA,
       senderAddress: "0x1111111111111111111111111111111111111111",
       extraPayload: encodedSwim
@@ -136,9 +163,9 @@ describe("parseAndValidateVaa", () => {
 
     const encodedTransferWithPool = encodeTransferWithPoolPayload(
       transferWithPoolPayload.amount.toString(),
-      convertAddressToHexBuffer(transferWithPoolPayload.originAddress, CHAIN_ID_ETH),
+      convertAddressToHexBuffer(originAddress, CHAIN_ID_ETH),
       transferWithPoolPayload.originChain,
-      convertAddressToHexBuffer(transferWithPoolPayload.targetAddress, CHAIN_ID_SOLANA),
+      convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
       transferWithPoolPayload.targetChain,
       convertAddressToHexBuffer(transferWithPoolPayload.senderAddress, CHAIN_ID_ETH),
       transferWithPoolPayload.extraPayload

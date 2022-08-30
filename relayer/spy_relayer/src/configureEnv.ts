@@ -86,6 +86,7 @@ export type RelayerEnvironment = {
   clearRedisOnInit: boolean;
   demoteWorkingOnInit: boolean;
   supportedTokens: { chainId: ChainId; address: string }[];
+  swimEvmContractAddress: string;
 };
 
 export type ChainConfigInfo = {
@@ -242,6 +243,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let demoteWorkingOnInit: boolean;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
   const logger = getLogger();
+  let swimEvmContractAddress: string;
 
   if (!process.env.REDIS_HOST) {
     throw new Error("Missing required environment variable: REDIS_HOST");
@@ -302,6 +304,10 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     }
   }
 
+  if(!process.env.SWIM_EVM_ROUTING_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
+  }
+  swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
   logger.info("Setting the relayer backend...");
 
   return {
@@ -311,6 +317,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     clearRedisOnInit,
     demoteWorkingOnInit,
     supportedTokens,
+    swimEvmContractAddress
   };
 };
 

@@ -3,6 +3,8 @@ import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import {
   ChainId,
   tryNativeToHexString,
+  tryHexToNativeString,
+  uint8ArrayToHex
 } from "@certusone/wormhole-sdk";
 
 const elliptic = require("elliptic");
@@ -77,15 +79,19 @@ export function toBigNumberHex(value: BigNumberish, numBytes: number): string {
 export function encodeSwimPayload(
   swimMessageVersion: number,
   targetChainRecipient: Buffer,
+  propellerEnabled: boolean,
+  gasKickstartEnabled: boolean,
   swimTokenNumber: number,
-  minimumOutputAmount: string,
+  memoId: string
 ) {
   // TODO encode rest of propeller parameters after design finalized
-  const encoded = Buffer.alloc(67);
+  const encoded = Buffer.alloc(53);
   encoded.writeUInt8(swimMessageVersion, 0);
   encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
-  encoded.writeUInt16BE(swimTokenNumber, 33);
-  encoded.write(toBigNumberHex(minimumOutputAmount, 32), 35, "hex");
+  encoded.writeUInt8(propellerEnabled ? 1 : 0, 33);
+  encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
+  encoded.writeUInt16BE(swimTokenNumber, 35);
+  encoded.write(toBigNumberHex(memoId, 16), 37, "hex");
   return encoded;
 }
 
@@ -98,7 +104,7 @@ export function encodeTransferWithPoolPayload(
   senderAddress: Buffer,
   swimPayload: Buffer
 ) {
-  const encoded = Buffer.alloc(133 + 67); // TODO change this size once swim payload finalized
+  const encoded = Buffer.alloc(133 + 53); // TODO change this size once swim payload finalized
   encoded.writeUInt8(3, 0); // this will always be payload type 3
   encoded.write(toBigNumberHex(amount, 32), 1, "hex");
   encoded.write(originAddress.toString("hex"), 33, "hex");
@@ -116,4 +122,8 @@ export function convertAddressToHexBuffer(address: string, chain_id: ChainId): B
 
 export function convertAddressToUint8(address: string, chain_id: ChainId): Uint8Array {
   return Uint8Array.from(convertAddressToHexBuffer(address, chain_id));
+}
+
+export function convertUint8ToAddress(uint8: Uint8Array, chain_id: ChainId): string {
+  return tryHexToNativeString(uint8ArrayToHex(uint8), chain_id);
 }
