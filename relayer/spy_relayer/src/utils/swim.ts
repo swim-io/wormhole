@@ -28,21 +28,18 @@ export const parseTransferWithArbPayload = (arr: Buffer) => ({
 
 /*
     Parsing the extraPayload portion of payload3
-    1 byte - swim internal payload version number
+     1 byte  - swim internal payload version number
     32 bytes - logical owner/recipient (will use ATA of owner and token on Solana)
-    2 bytes - swimTokenNumber (support up to 65k different tokens, just to be safe)
-    32 bytes - minimum output amount (using 32 bytes like Wormhole)
-
-    TODO finalize these parameters
-    16 bytes - memo/interactionId (??) (current memo is 16 bytes - can't use Wormhole sequence due to Solana originating transactions (only receive sequence number in last transaction on Solana, hence no id for earlier transactions))
-    ?? bytes - propeller parameters (propellerEnabled: bool / gasTokenPrefundingAmount: uint256 / propellerFee (?? - similar to wormhole arbiter fee))
+     1 byte  - propeller enabled bool
+     1 byte  - gas kickstart requested bool
+     2 bytes - swimTokenNumber (support up to 65k different tokens, just to be safe)
+    16 bytes - memo/interactionId
 */
 export const parseSwimPayload = (arr: Buffer) => ({
     swimMessageVersion: arr.readUInt8(0),
     targetChainRecipient: arr.slice(1, 1 + 32).toString("hex"),
-    // TODO as of 8/16/22 these are the only fields in SwimPayload. Update once routing contract is redeployed
-    //swimTokenNumber: arr.readUInt16BE(33),
-    //minimumOutputAmount: BigNumber.from(arr.slice(35, 35 + 32)).toBigInt(),
-    //memoId: BigNumber.from(arr.slice(67, 67 + 16)).toBigInt(),
-    //otherParameters: arr.slice(83)
+    propellerEnabled: arr.readUInt8(33) == 1 ? true : false,
+    gasKickstartEnabled: arr.readUInt8(34) == 1 ? true : false,
+    swimTokenNumber: arr.readUInt16BE(35),
+    memoId: BigNumber.from(arr.slice(37, 37 + 16)).toBigInt()
 });
