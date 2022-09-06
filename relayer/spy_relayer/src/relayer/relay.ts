@@ -19,10 +19,14 @@ import { PromHelper } from "../helpers/promHelpers";
 import { parseTransferWithArbPayload } from "../utils/swim";
 
 const logger = getLogger();
+const env = getRelayerEnvironment();
 
 function getChainConfigInfo(chainId: ChainId) {
-  const env = getRelayerEnvironment();
   return env.supportedChains.find((x) => x.chainId === chainId);
+}
+
+function getSwimRoutingContract() {
+  return env.swimEvmContractAddress;
 }
 
 export async function relay(
@@ -70,11 +74,11 @@ export async function relay(
       let evmResult = await relayEVM(
         chainConfigInfo,
         signedVAA,
-        unwrapNative,
         checkOnly,
         walletPrivateKey,
         logger,
-        metrics
+        metrics,
+        env.swimEvmContractAddress
       );
       return {
         status: evmResult.redeemed ? Status.Completed : Status.Error,

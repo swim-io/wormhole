@@ -81,7 +81,7 @@ SUPPORTED_TOKENS =
 [
     {
       "chainId": 1,
-      "address": "5ctnNpb7h1SyPqZ8t8m2kCykrtDGVZBtZgYWv6UAeDhr"  //swimUSD solana hexapool, converted to solana address with tryHexToNativeString()
+      "address": "5ctnNpb7h1SyPqZ8t8m2kCykrtDGVZBtZgYWv6UAeDhr"  //swimUSD solana hexapool, converted to solana address with tryHexToNativeString(), using translateAddress.ts
     }
 ]
 ```

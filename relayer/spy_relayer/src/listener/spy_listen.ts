@@ -102,6 +102,8 @@ export async function run(ph: PromHelper) {
   );
 
   const wrappedFilters = { filters: typedFilters };
+  logger.debug("spyServiceFilters");
+  logger.debug(env.spyServiceFilters);
 
   while (true) {
     let stream: any;
