@@ -1,19 +1,17 @@
 import {
-  Bridge__factory,
   CHAIN_ID_CELO,
   CHAIN_ID_FANTOM,
   CHAIN_ID_KLAYTN,
   CHAIN_ID_POLYGON,
   getIsTransferCompletedEth,
   hexToUint8Array,
-  redeemOnEth,
-  redeemOnEthNative,
 } from "@certusone/wormhole-sdk";
 import { ethers } from "ethers";
 import { ChainConfigInfo } from "../configureEnv";
 import { getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import { PromHelper } from "../helpers/promHelpers";
 import { CeloProvider, CeloWallet } from "@celo-tools/celo-ethers-wrapper";
+import { Routing__factory } from "@swim-io/evm-contracts";
 
 export function newProvider(
   url: string,
@@ -33,11 +31,11 @@ export function newProvider(
 export async function relayEVM(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
-  unwrapNative: boolean,
   checkOnly: boolean,
   walletPrivateKey: string,
   relayLogger: ScopedLogger,
-  metrics: PromHelper
+  metrics: PromHelper,
+  swimEvmContractAddress: string,
 ) {
   const logger = getScopedLogger(
     ["evm", chainConfigInfo.chainName],
@@ -70,15 +68,7 @@ export async function relayEVM(
     return { redeemed: false, result: "not redeemed" };
   }
 
-  if (unwrapNative) {
-    logger.info(
-      "Will redeem and unwrap using pubkey: %s",
-      await signer.getAddress()
-    );
-  } else {
-    logger.info("Will redeem using pubkey: %s", await signer.getAddress());
-  }
-
+  logger.info("Will redeem using pubkey: %s", await signer.getAddress());
   logger.debug("Redeeming.");
   let overrides = {};
   if (chainConfigInfo.chainId === CHAIN_ID_POLYGON) {
@@ -92,15 +82,26 @@ export async function relayEVM(
     // Klaytn and Fantom require specifying gasPrice
     overrides = { gasPrice: (await signer.getGasPrice()).toString() };
   }
-  const bridge = Bridge__factory.connect(
-    chainConfigInfo.tokenBridgeAddress,
+  // TODO add gasLimit from env var here
+  logger.debug("signer address:");
+  logger.debug(signer.address);
+  logger.debug(await signer.getBalance());
+  logger.debug("swim evm contract address");
+  logger.debug(swimEvmContractAddress);
+
+  overrides = { ...overrides, gasLimit: ethers.BigNumber.from("2000000") };
+
+  const routing_contract = Routing__factory.connect(
+    swimEvmContractAddress,
     signer
   );
-  const contractMethod = unwrapNative
-    ? bridge.completeTransferAndUnwrapETH
-    : bridge.completeTransfer;
-  // TODO add gasLimit from swimPayload here
-  const tx = await contractMethod(signedVaaArray, overrides);
+
+  // TODO fill out memo
+  const tx = await routing_contract.propellerIn(
+    signedVaaArray,
+    //overrides
+  );
+
   logger.info("waiting for tx hash: %s", tx.hash);
   const receipt = await tx.wait();
 

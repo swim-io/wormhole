@@ -284,6 +284,8 @@ export type ParsedTransferWithArbDataPayload<T> = {
 export type ParsedSwimData = {
   swimMessageVersion: number;
   targetChainRecipient: Uint8Array; //hex
+  propellerEnabled: boolean;
+  gasKickstartEnabled: boolean;
   swimTokenNumber: number;
-  minimumOutputAmount: BigInt;
+  memoId: BigInt;
 };

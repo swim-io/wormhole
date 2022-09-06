@@ -16,7 +16,8 @@
     "createVaa": "node lib/scratch/createVaa.js",
     "decodeVaa": "node lib/scratch/decodeVaa.js",
     "checkBalance": "node lib/scratch/checkBalance.js",
-    "translateAddress": "node lib/scratch/translateAddress.js"
+    "translateAddress": "node lib/scratch/translateAddress.js",
+    "decodeSwimPayload": "node lib/scratch/decodeSwimPayload.js"
   },
   "author": "",
   "license": "Apache-2.0",
@@ -43,7 +44,7 @@
     "@certusone/wormhole-spydk": "^0.0.1",
     "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.24.0",
-    "@swim-io/evm-contracts": "^0.13.0",
+    "@swim-io/evm-contracts": "^0.15.0",
     "@terra-money/wallet-provider": "^3.8.0",
     "@types/express": "^4.17.13",
     "async-mutex": "^0.3.2",
