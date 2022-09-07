@@ -69,19 +69,23 @@ const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
 const parsedSwimData = {
   swimMessageVersion: 1,
   targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+  propellerEnabled: true,
+  gasKickstartEnabled: true,
   swimTokenNumber: 2,
-  minimumOutputAmount: BigInt(20),
+  memoId: BigNumber.from(20),
 }
 
 const encodedSwim = encodeSwimPayload(
   parsedSwimData.swimMessageVersion,
   convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
+  parsedSwimData.propellerEnabled,
+  parsedSwimData.gasKickstartEnabled,
   parsedSwimData.swimTokenNumber,
-  parsedSwimData.minimumOutputAmount.toString(),
+  parsedSwimData.memoId,
 );
 
 const parsedTransferWithPoolPayload = {
-  amount: BigInt(20),
+  amount: BigNumber.from(20),
   originAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
   originChain: CHAIN_ID_ETH,
   targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),

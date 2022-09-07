@@ -82,9 +82,8 @@ export function encodeSwimPayload(
   propellerEnabled: boolean | null,
   gasKickstartEnabled: boolean | null,
   swimTokenNumber: number | null,
-  memoId: string | null
+  memoId: BigNumber | null
 ) {
-  // TODO encode rest of propeller parameters after design finalized
   const encoded = Buffer.alloc(53);
   encoded.writeUInt8(swimMessageVersion, 0);
   encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
@@ -93,7 +92,9 @@ export function encodeSwimPayload(
   if (swimTokenNumber) 
     encoded.writeUInt16BE(swimTokenNumber, 35);
   if (memoId) 
+    //encoded.write(memoId.toHexString(), 37, "hex");
     encoded.write(toBigNumberHex(memoId, 16), 37, "hex");
+    //encoded.write(memoId, 37, "hex");
   return encoded;
 }
 

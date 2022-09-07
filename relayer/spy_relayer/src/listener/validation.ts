@@ -18,6 +18,7 @@ import {
   parseSwimPayload,
   parseTransferWithArbPayload
 } from "../utils/swim";
+import { BigNumber } from "@ethersproject/bignumber";
 
 const logger = getLogger();
 
@@ -272,7 +273,7 @@ function IsParsedTransferPayload(
   );
 }
 export type ParsedTransferWithArbDataPayload<T> = {
-  amount: BigInt;
+  amount: BigNumber;
   originAddress: Uint8Array; //hex
   originChain: ChainId;
   targetAddress: Uint8Array; //hex
@@ -287,5 +288,5 @@ export type ParsedSwimData = {
   propellerEnabled: boolean;
   gasKickstartEnabled: boolean;
   swimTokenNumber: number;
-  memoId: BigInt;
+  memoId: BigNumber;
 };

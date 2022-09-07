@@ -1,9 +1,6 @@
 import {
   CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
-  hexToUint8Array,
-  uint8ArrayToHex,
-  tryNativeToHexString,
   tryHexToNativeString
 } from "@certusone/wormhole-sdk";
 import { arrayify, zeroPad } from "@ethersproject/bytes";
@@ -11,22 +8,19 @@ import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { describe, expect, jest, test, it } from "@jest/globals";
 import {
   ETH_PUBLIC_KEY,
-  ETH_PRIVATE_KEY,
-  SOLANA_CORE_BRIDGE_ADDRESS,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
-  TEST_APPROVED_ETH_TOKEN,
 } from "./consts";
 import {
   parseTransferWithArbPayload,
-  parseSwimPayload
+  parseSwimPayload,
 } from "../utils/swim";
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber } from "@ethersproject/bignumber";
 import {
-  toBigNumberHex,
   encodeSwimPayload,
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
   convertAddressToUint8,
+  toBigNumberHex,
 } from "./utils"
 
 setDefaultWasm("node");
@@ -80,7 +74,7 @@ test("parseTransferWithPoolPayload", () => {
     swimPayload.propellerEnabled,
     swimPayload.gasKickstartEnabled,
     swimPayload.swimTokenNumber,
-    swimPayload.memoId.toString(),
+    swimPayload.memoId
   );
 
   const transferWithPoolPayload = {
@@ -137,7 +131,7 @@ describe("parseSwimPayload", () => {
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
       swimPayload.swimTokenNumber,
-      swimPayload.memoId.toString(),
+      swimPayload.memoId,
     );
 
     const result = parseSwimPayload(encodedSwim);
@@ -146,7 +140,7 @@ describe("parseSwimPayload", () => {
     expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
     expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-    expect(result.memoId).toBe(swimPayload.memoId.toBigInt());
+    expect(result.memoId).toBe(toBigNumberHex(swimPayload.memoId, 16));
   });
 
   it("with no memo field", async () => {
@@ -174,7 +168,7 @@ describe("parseSwimPayload", () => {
     expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
     expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-    expect(result.memoId).toBe(0n);
+    expect(result.memoId).toBe(toBigNumberHex(BigNumber.from(0), 16));
   });
 
   it("only swimMessageVersion and targetChainRecipient", async() => {
@@ -199,6 +193,6 @@ describe("parseSwimPayload", () => {
     expect(result.propellerEnabled).toBe(false);
     expect(result.gasKickstartEnabled).toBe(false);
     expect(result.swimTokenNumber).toBe(0);
-    expect(result.memoId).toBe(0n);
+    expect(result.memoId).toBe(toBigNumberHex(BigNumber.from(0), 16));
   });
 })
