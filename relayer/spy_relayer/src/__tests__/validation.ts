@@ -6,10 +6,10 @@ require("../helpers/loadConfig");
 import {
   CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
-  uint8ArrayToHex,
-  tryNativeToHexString,
   tryHexToNativeString,
-  tryUint8ArrayToNative
+  tryUint8ArrayToNative,
+  tryHexToNativeAssetString,
+  tryNativeToHexString
 } from "@certusone/wormhole-sdk";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { describe, expect, jest, test } from "@jest/globals";
@@ -22,8 +22,6 @@ import {
 } from "../listener/validation";
 import {
   ETH_PUBLIC_KEY,
-  ETH_PRIVATE_KEY,
-  SOLANA_CORE_BRIDGE_ADDRESS,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
   TEST_APPROVED_ETH_TOKEN,
   TEST_SWIM_EVM_ROUTING_ADDRESS,
@@ -34,7 +32,8 @@ import {
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
   convertAddressToUint8,
-  convertUint8ToAddress
+  convertUint8ToAddress,
+  toBigNumberHex
 } from "./utils";
 import { BigNumber } from "@ethersproject/bignumber";
 
@@ -62,7 +61,7 @@ describe("parseAndValidateVaa", () => {
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
       swimPayload.swimTokenNumber,
-      swimPayload.memoId.toString(),
+      swimPayload.memoId
     );
 
     const transferWithPoolPayload = {
@@ -102,31 +101,33 @@ describe("parseAndValidateVaa", () => {
 
     const rawVaa = Uint8Array.from(encodedVaa);
     let result = await parseAndValidateVaa(rawVaa);
-    console.log(result);
     expect(typeof result).toBe("object");
     result = result as ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>;
+
+    // Verify vaa fields
     expect(result.timestamp).toBe(16);
     expect(result.nonce).toBe(32);
     expect(result.emitterChain).toBe(CHAIN_ID_ETH);
     expect(convertUint8ToAddress(result.emitterAddress, CHAIN_ID_ETH)).toBe(originAddress);
     expect(result.sequence).toBe(1);
-    // Verify payload fields are the same
 
-    /*
-    expect(result.payload.amount).toBe(transferWithPoolPayload.amount.toBigInt());
-    console.log('here');
-    console.log(result.payload.originAddress);
-    console.log(tryUint8ArrayToNative(result.payload.originAddress, CHAIN_ID_ETH));
-    console.log(convertUint8ToAddress(transferWithPoolPayload.originAddress, CHAIN_ID_ETH));
-    expect(result.payload.originAddress).toBe(convertUint8ToAddress(transferWithPoolPayload.originAddress, CHAIN_ID_ETH));
-    expect(result.payload.originChain).toBe(transferWithPoolPayload.originChain);
-    expect(convertUint8ToAddress(result.payload.targetAddress, CHAIN_ID_SOLANA)).toBe(transferWithPoolPayload.targetAddress);
-    expect(result.payload.targetChain).toBe(transferWithPoolPayload.targetChain);
-    expect(convertUint8ToAddress(result.payload.senderAddress, CHAIN_ID_ETH)).toBe(transferWithPoolPayload.senderAddress);
-    */
+    // Verify payload fields 
+    const payload3 = result.payload;
+    expect(payload3.amount).toBe(transferWithPoolPayload.amount.toBigInt());
+    expect(payload3.originAddress).toBe(tryNativeToHexString(originAddress, CHAIN_ID_ETH));
+    expect(payload3.originChain).toBe(transferWithPoolPayload.originChain);
+    expect(payload3.targetAddress).toBe(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA));
+    expect(payload3.targetChain).toBe(transferWithPoolPayload.targetChain);
+    expect(payload3.senderAddress).toBe(tryNativeToHexString(TEST_SWIM_EVM_ROUTING_ADDRESS, CHAIN_ID_ETH));
 
-    // TODO Verify extraPayload fields are the same once swimPayload design is finalized
-    const resultSwimPayload = result.payload.extraPayload;
+    // Verify extraPayload fields
+    const resultSwimPayload = payload3.extraPayload;
+    expect(resultSwimPayload.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
+    expect(resultSwimPayload.targetChainRecipient).toBe(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA));
+    expect(resultSwimPayload.propellerEnabled).toBe(swimPayload.propellerEnabled);
+    expect(resultSwimPayload.gasKickstartEnabled).toBe(swimPayload.gasKickstartEnabled);
+    expect(resultSwimPayload.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
+    expect(resultSwimPayload.memoId).toBe(toBigNumberHex(swimPayload.memoId, 16));
   });
 
   test("swim payload does not have expected SWIM_EVM_ROUTING_ADDRESS", async () => {
@@ -148,7 +149,7 @@ describe("parseAndValidateVaa", () => {
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
       swimPayload.swimTokenNumber,
-      swimPayload.memoId.toString(),
+      swimPayload.memoId,
     );
 
     const transferWithPoolPayload = {
@@ -203,7 +204,6 @@ test("parseVaaTyped", async () => {
   );
 
   const result = await parseVaaTyped(encodedVaa);
-  //console.log(result);
   expect(result.timestamp).toBe(16);
   expect(result.nonce).toBe(32);
   expect(result.emitterChain).toBe(CHAIN_ID_ETH);
