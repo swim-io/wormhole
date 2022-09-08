@@ -3,7 +3,6 @@ import {
 } from "@certusone/wormhole-sdk";
 import { BigNumber } from "@ethersproject/bignumber";
 
-
 /*
     Similar to parseVaa.ts
     Everything is offset by 1, because first byte is the payload type (1, 2, 3)
@@ -35,18 +34,12 @@ export const parseTransferWithArbPayload = (arr: Buffer) => ({
      2 bytes - swimTokenNumber (support up to 65k different tokens, just to be safe)
     16 bytes - memo/interactionId
 */
-/*
-export const parseSwimPayload = (arr: Buffer) => ({
-    swimMessageVersion: arr.readUInt8(0),
-    targetChainRecipient: arr.slice(1, 1 + 32).toString("hex"),
-    propellerEnabled: arr.readUInt8(33) == 1 ? true : false,
-    gasKickstartEnabled: arr.readUInt8(34) == 1 ? true : false,
-    swimTokenNumber: arr.readUInt16BE(35),
-    memoId: arr.slice(37, 37 + 16).toString("hex")
-});
-*/
 export const parseSwimPayload = (arr: Buffer) => {
   const swimMessageVersion = arr.readUInt8(0);
+  if (!SWIM_PAYLOAD_VERSIONS.includes(swimMessageVersion)) {
+    throw "swim payload had an unsupported message version " + swimMessageVersion;
+  }
+  // TODO expand this for multiple swim payload versions
   const targetChainRecipient = arr.slice(1, 1 + 32).toString("hex");
   if (arr.length == 33)
     return {swimMessageVersion, targetChainRecipient};
@@ -60,3 +53,7 @@ export const parseSwimPayload = (arr: Buffer) => {
   const memoId = arr.slice(37, 37 + 16).toString("hex");
   return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, swimTokenNumber, memoId};
 };
+
+const SWIM_PAYLOAD_VERSIONS = [
+  1
+]

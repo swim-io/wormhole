@@ -1,15 +1,9 @@
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
-import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { Request, Response } from "express";
 import { getListenerEnvironment, ListenerEnvironment } from "../configureEnv";
 import { getLogger } from "../helpers/logHelper";
 import {
-  initPayloadWithVAA,
   pushVaaToRedis,
-  storeInRedis,
-  storeKeyFromParsedVAA,
-  storeKeyToJson,
-  storePayloadToJson,
 } from "../helpers/redisHelper";
 import {
   parseAndValidateVaa,
@@ -56,18 +50,17 @@ export async function run() {
         const vaaBuf = Uint8Array.from(Buffer.from(req.params.vaa, "base64"));
         logger.debug("vaaBuf: " + vaaBuf);
         const hexVaa = uint8ArrayToHex(vaaBuf);
-        const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | string =
-          await parseAndValidateVaa(vaaBuf);
+        try {
+          const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> =
+            await parseAndValidateVaa(vaaBuf);
+          pushVaaToRedis(validationResults, hexVaa);
 
-        if (typeof validationResults === "string") {
+          res.status(200).json({ message: "Scheduled" });
+        } catch(e) {
           logger.debug("Rejecting REST request due validation failure");
-          res.status(400).json({ message: `Rejecting REST request due validation failure: ${validationResults}`});
+          res.status(400).json({ message: `Rejecting REST request due validation failure: ${e}`});
           return;
         }
-
-        pushVaaToRedis(validationResults, hexVaa);
-
-        res.status(200).json({ message: "Scheduled" });
       } catch (e) {
         logger.error(
           "failed to process rest relay of vaa request, error: %o",

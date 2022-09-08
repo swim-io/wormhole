@@ -3,15 +3,13 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import {
   ChainId,
   CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
-  hexToNativeString,
+  tryHexToNativeString,
   hexToUint8Array,
   isEVMChain,
 } from "@certusone/wormhole-sdk";
 
 import { relayEVM } from "./evm";
 import { relaySolana } from "./solana";
-import { relayTerra } from "./terra";
 import { getRelayerEnvironment } from "../configureEnv";
 import { RelayResult, Status } from "../helpers/redisHelper";
 import { getLogger, getScopedLogger, ScopedLogger } from "../helpers/logHelper";
@@ -23,10 +21,6 @@ const env = getRelayerEnvironment();
 
 function getChainConfigInfo(chainId: ChainId) {
   return env.supportedChains.find((x) => x.chainId === chainId);
-}
-
-function getSwimRoutingContract() {
-  return env.swimEvmContractAddress;
 }
 
 export async function relay(
@@ -59,7 +53,7 @@ export async function relay(
     if (isEVMChain(parsedVAAPayload.targetChain)) {
       const unwrapNative =
         parsedVAAPayload.originChain === parsedVAAPayload.targetChain &&
-        hexToNativeString(
+        tryHexToNativeString(
           parsedVAAPayload.originAddress,
           parsedVAAPayload.originChain
         )?.toLowerCase() === chainConfigInfo.wrappedAsset?.toLowerCase();
@@ -89,23 +83,6 @@ export async function relay(
     if (parsedVAAPayload.targetChain === CHAIN_ID_SOLANA) {
       let rResult: RelayResult = { status: Status.Error, result: "" };
       const retVal = await relaySolana(
-        chainConfigInfo,
-        signedVAA,
-        checkOnly,
-        walletPrivateKey,
-        logger,
-        metrics
-      );
-      if (retVal.redeemed) {
-        rResult.status = Status.Completed;
-      }
-      rResult.result = retVal.result;
-      return rResult;
-    }
-
-    if (parsedVAAPayload.targetChain === CHAIN_ID_TERRA) {
-      let rResult: RelayResult = { status: Status.Error, result: "" };
-      const retVal = await relayTerra(
         chainConfigInfo,
         signedVAA,
         checkOnly,

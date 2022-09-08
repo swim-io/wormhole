@@ -154,19 +154,15 @@ async function processVaa(rawVaa: Uint8Array) {
     vaaUriPrelude + encodeURIComponent(Buffer.from(rawVaa).toString("base64"));
 
   logger.debug("processing rawVAA: " + uint8ArrayToHex(rawVaa));
-  const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | string =
-    await parseAndValidateVaa(rawVaa);
-
-  metrics.incIncoming();
-
-  if (typeof validationResults === "string") {
+  try {
+    const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = await parseAndValidateVaa(rawVaa);
+    metrics.incIncoming();
+    const parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = validationResults;
+    pushVaaToRedis(parsedVAA, uint8ArrayToHex(rawVaa));
+  } catch(e) {
     logger.debug("Rejecting spied request due validation failure");
     return;
   }
-
-  const parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = validationResults;
-
-  await pushVaaToRedis(parsedVAA, uint8ArrayToHex(rawVaa));
 }
 
 async function encodeEmitterAddress(
