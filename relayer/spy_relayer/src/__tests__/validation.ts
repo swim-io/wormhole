@@ -36,6 +36,7 @@ import {
   toBigNumberHex
 } from "./utils";
 import { BigNumber } from "@ethersproject/bignumber";
+import { rejects } from "assert";
 
 setDefaultWasm("node");
 
@@ -185,8 +186,20 @@ describe("parseAndValidateVaa", () => {
     )
 
     const rawVaa = Uint8Array.from(encodedVaa);
-    let result = await parseAndValidateVaa(rawVaa);
-    expect(typeof result).toBe("string");
+
+    await expect(parseAndValidateVaa(rawVaa)).rejects.toEqual(
+      Error("senderAddress is not the expected address, got 0000000000000000000000001111111111111111111111111111111111111111 but should be 0000000000000000000000000290fb167208af455bb137780163b7b7a9a10c16")
+    );
+    /*
+    const validate = async () => {
+      try {
+        await parseAndValidateVaa(rawVaa)
+      } catch (e) {
+        Promise.reject(e)
+      }
+    }
+    await expect(validate()).rejects.toThrow();
+    */
   });
 });
 
