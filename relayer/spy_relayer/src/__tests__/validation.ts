@@ -7,8 +7,6 @@ import {
   CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
   tryHexToNativeString,
-  tryUint8ArrayToNative,
-  tryHexToNativeAssetString,
   tryNativeToHexString
 } from "@certusone/wormhole-sdk";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
@@ -36,7 +34,6 @@ import {
   toBigNumberHex
 } from "./utils";
 import { BigNumber } from "@ethersproject/bignumber";
-import { rejects } from "assert";
 
 setDefaultWasm("node");
 
@@ -46,6 +43,8 @@ describe("parseAndValidateVaa", () => {
   test("successful swim payload", async () => {
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
     const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const memoId = Buffer.alloc(16);
+    memoId.writeUInt8(2, 0);
 
     const swimPayload = {
       swimMessageVersion: 1,
@@ -53,7 +52,7 @@ describe("parseAndValidateVaa", () => {
       propellerEnabled: true,
       gasKickstartEnabled: true,
       swimTokenNumber: 1,
-      memoId: BigNumber.from(33)
+      memoId: memoId
     };
 
     const encodedSwim = encodeSwimPayload(
@@ -128,12 +127,14 @@ describe("parseAndValidateVaa", () => {
     expect(resultSwimPayload.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(resultSwimPayload.gasKickstartEnabled).toBe(swimPayload.gasKickstartEnabled);
     expect(resultSwimPayload.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-    expect(resultSwimPayload.memoId).toBe(toBigNumberHex(swimPayload.memoId, 16));
+    expect(resultSwimPayload.memoId).toBe(swimPayload.memoId.toString("hex"))
   });
 
   test("swim payload does not have expected SWIM_EVM_ROUTING_ADDRESS", async () => {
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
     const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const memoId = Buffer.alloc(16);
+    memoId.writeUInt8(2, 0);
 
     const swimPayload = {
       swimMessageVersion: 1,
@@ -141,7 +142,7 @@ describe("parseAndValidateVaa", () => {
       propellerEnabled: true,
       gasKickstartEnabled: true,
       swimTokenNumber: 1,
-      memoId: BigNumber.from(33)
+      memoId: memoId
     };
 
     const encodedSwim = encodeSwimPayload(
@@ -190,16 +191,6 @@ describe("parseAndValidateVaa", () => {
     await expect(parseAndValidateVaa(rawVaa)).rejects.toEqual(
       Error("senderAddress is not the expected address, got 0000000000000000000000001111111111111111111111111111111111111111 but should be 0000000000000000000000000290fb167208af455bb137780163b7b7a9a10c16")
     );
-    /*
-    const validate = async () => {
-      try {
-        await parseAndValidateVaa(rawVaa)
-      } catch (e) {
-        Promise.reject(e)
-      }
-    }
-    await expect(validate()).rejects.toThrow();
-    */
   });
 });
 

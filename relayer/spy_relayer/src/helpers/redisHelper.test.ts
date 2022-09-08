@@ -65,6 +65,8 @@ test("should correctly increment sourceToTargetMap", async () => {
 
 const emitterAddressStr = ETH_PUBLIC_KEY.toLowerCase();
 const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
+const memoId = Buffer.alloc(16);
+memoId.writeUInt8(2, 0);
 
 const parsedSwimData = {
   swimMessageVersion: 1,
@@ -72,7 +74,7 @@ const parsedSwimData = {
   propellerEnabled: true,
   gasKickstartEnabled: true,
   swimTokenNumber: 2,
-  memoId: BigNumber.from(20),
+  memoId: memoId
 }
 
 const encodedSwim = encodeSwimPayload(

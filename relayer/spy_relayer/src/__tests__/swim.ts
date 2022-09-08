@@ -64,7 +64,7 @@ test("parseTransferWithPoolPayload", () => {
     propellerEnabled: true,
     gasKickstartEnabled: true,
     swimTokenNumber: 1,
-    memoId: BigNumber.from(33)
+    memoId: Buffer.from("33", "hex")  
   };
 
   const encodedSwim = encodeSwimPayload(
@@ -115,13 +115,16 @@ test("parseTransferWithPoolPayload", () => {
 describe("parseSwimPayload", () => {
   it("with all fields", async() => {
     const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const memoId = Buffer.alloc(16);
+    memoId.writeUInt8(2, 0);
+
     const swimPayload = {
       swimMessageVersion: 1,
       targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
       swimTokenNumber: 1,
-      memoId: BigNumber.from(33)
+      memoId: memoId
     };
 
     const encodedSwim = encodeSwimPayload(
@@ -139,7 +142,7 @@ describe("parseSwimPayload", () => {
     expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
     expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
-    expect(result.memoId).toBe(toBigNumberHex(swimPayload.memoId, 16));
+    expect(result.memoId).toBe(swimPayload.memoId.toString("hex"));
   });
 
   it("with no memo field", async () => {

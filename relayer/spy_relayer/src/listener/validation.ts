@@ -274,5 +274,5 @@ export type ParsedSwimData = {
   propellerEnabled: boolean;
   gasKickstartEnabled: boolean;
   swimTokenNumber: number;
-  memoId: BigNumber;
+  memoId: Uint8Array; //hex
 };
