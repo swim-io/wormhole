@@ -143,11 +143,6 @@ export async function parseAndValidateVaa(
     throw new Error(error);
   }
 
-  // TODO swim payload version check
-  if (swimPayload.swimMessageVersion !== 1) {
-    //logger.debug("swimMessageVersion is not 1");
-  }
-
   // We should only be getting messages from one specific swim EVM routing contract.
   const expectedSwimEvmContractAddress = tryNativeToHexString(env.swimEvmContractAddress, CHAIN_ID_ETH);
   if (parsedVaaPayload.senderAddress != expectedSwimEvmContractAddress) {

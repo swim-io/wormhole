@@ -37,7 +37,7 @@ export const parseTransferWithArbPayload = (arr: Buffer) => ({
 export const parseSwimPayload = (arr: Buffer) => {
   const swimMessageVersion = arr.readUInt8(0);
   if (!SWIM_PAYLOAD_VERSIONS.includes(swimMessageVersion)) {
-    throw "swim payload had an unsupported message version " + swimMessageVersion;
+    throw new Error ("swim payload had an unsupported message version " + swimMessageVersion);
   }
   // TODO expand this for multiple swim payload versions
   const targetChainRecipient = arr.slice(1, 1 + 32).toString("hex");
