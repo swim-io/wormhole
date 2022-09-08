@@ -3,7 +3,6 @@ import {
   CHAIN_ID_SOLANA,
   tryHexToNativeString
 } from "@certusone/wormhole-sdk";
-import { arrayify, zeroPad } from "@ethersproject/bytes";
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { describe, expect, jest, test, it } from "@jest/globals";
 import {
@@ -194,5 +193,25 @@ describe("parseSwimPayload", () => {
     expect(result.gasKickstartEnabled).toBe(false);
     expect(result.swimTokenNumber).toBe(0);
     expect(result.memoId).toBe(toBigNumberHex(BigNumber.from(0), 16));
+  });
+
+  it("with invalid swimMessageVersion", async() => {
+    const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const invalidSwimVersion = 255;
+    const swimPayload = {
+      swimMessageVersion: invalidSwimVersion,
+      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+    };
+
+    const encodedSwim = encodeSwimPayload(
+      swimPayload.swimMessageVersion,
+      convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+      null,
+      null,
+      null,
+      null
+    );
+  
+    expect(() => parseSwimPayload(encodedSwim)).toThrow(Error("swim payload had an unsupported message version " + invalidSwimVersion));
   });
 })
