@@ -27,15 +27,15 @@ spy --nodeKey /node.key --spyRPC "[::]:7073" --network /wormhole/testnet/2/1 --b
 
 ## Running spy relay:
 ```bash
-npm run spy_relay
+npm run swim_spy_relay
 ```
 
 # Config setup
 
+There's a config file `.env.testnet`. If you are making a config file, then follow these instructions:
+
 You'll need a configuration file similar to `.env.sample`. If you're running each portion of the engine separately make sure
 they have correct configuration files for each (or share one for all of them). This is assuming you have one config file.
-
-Make sure you update `loadConfig.ts` as well. I haven't figured out where to put the `SPY_RELAY_CONFIG` env var.
 
 Variables to modify:
 1. `SUPPORTED_CHAINS` - array of JSON objects with chain information. Used to setup wallet monitor, listener, and relayer environments.
