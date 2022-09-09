@@ -82,12 +82,6 @@ export async function relayEVM(
     // Klaytn and Fantom require specifying gasPrice
     overrides = { gasPrice: (await signer.getGasPrice()).toString() };
   }
-  // TODO add gasLimit from env var here
-  logger.debug("signer address:");
-  logger.debug(signer.address);
-  logger.debug(await signer.getBalance());
-  logger.debug("swim evm contract address");
-  logger.debug(swimEvmContractAddress);
 
   overrides = { ...overrides, gasLimit: ethers.BigNumber.from("2000000") };
 
