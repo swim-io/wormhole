@@ -12,6 +12,8 @@ For testnet you'll need these things running:
 ## Running redis:
 ```bash
 docker run --rm -p6379:6379 --name redis-docker -d redis
+
+docker exec -it redis-docker redis-cli
 ```
 
 ## Running a spy container on testnet wormhole:
