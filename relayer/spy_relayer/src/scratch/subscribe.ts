@@ -5,6 +5,7 @@ import {
 } from "@certusone/wormhole-spydk";
 import { sleep } from "../helpers/utils";
 
+// copied from spy_listen.ts
 (async () => {
     while (true) {
         let stream: any;
@@ -38,7 +39,9 @@ import { sleep } from "../helpers/utils";
           );
     
           while (connected) {
+            console.log("before sleep");
             await sleep(1000);
+            console.log("after sleep");
           }
         } catch (e) {
           console.log("spy service threw an exception: %o", e);
