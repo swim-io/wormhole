@@ -40,16 +40,7 @@ config.define_string("bigTableKeyPath", False, "Path to BigTable json key file")
 config.define_string("webHost", False, "Public hostname for port forwards")
 
 # Components
-config.define_bool("near", False, "Enable Near component")
-config.define_bool("algorand", False, "Enable Algorand component")
-config.define_bool("evm2", False, "Enable second Eth component")
-config.define_bool("solana", False, "Enable Solana component")
-config.define_bool("terra_classic", False, "Enable Terra Classic component")
-config.define_bool("terra2", False, "Enable Terra 2 component")
-config.define_bool("explorer", False, "Enable explorer component")
 config.define_bool("spy_relayer", False, "Enable spy relayer")
-config.define_bool("e2e", False, "Enable E2E testing stack")
-config.define_bool("ci_tests", False, "Enable tests runner component")
 config.define_bool("guardiand_debug", False, "Enable dlv endpoint for guardiand")
 config.define_bool("node_metrics", False, "Enable Prometheus & Grafana for Guardian metrics")
 config.define_bool("guardiand_governor", False, "Enable chain governor in guardiand")
@@ -60,17 +51,8 @@ namespace = cfg.get("namespace", "wormhole")
 gcpProject = cfg.get("gcpProject", "local-dev")
 bigTableKeyPath = cfg.get("bigTableKeyPath", "./event_database/devnet_key.json")
 webHost = cfg.get("webHost", "localhost")
-near = cfg.get("near", True)
-algorand = cfg.get("algorand", False)
-evm2 = cfg.get("evm2", True)
-solana = cfg.get("solana", True)
-terra_classic = cfg.get("terra_classic", False)
-terra2 = cfg.get("terra2", False)
 ci = cfg.get("ci", False)
-explorer = cfg.get("explorer", ci)
 spy_relayer = cfg.get("spy_relayer", ci)
-e2e = cfg.get("e2e", ci)
-ci_tests = cfg.get("ci_tests", ci)
 guardiand_debug = cfg.get("guardiand_debug", False)
 node_metrics = cfg.get("node_metrics", False)
 guardiand_governor = cfg.get("guardiand_governor", False)
@@ -111,16 +93,6 @@ local_resource(
     trigger_mode = trigger_mode,
 )
 
-# node
-
-if explorer:
-    k8s_yaml_with_ns(
-        secret_yaml_generic(
-            "node-bigtable-key",
-            from_file = "bigtable-key.json=" + bigTableKeyPath,
-        ),
-    )
-
 docker_build(
     ref = "guardiand-image",
     context = ".",
@@ -157,104 +129,11 @@ def build_node_yaml():
                 container["command"] += ["--logLevel=debug"]
                 print(container["command"])
 
-            if explorer:
-                container["command"] += [
-                    "--bigTablePersistenceEnabled",
-                    "--bigTableInstanceName",
-                    "wormhole",
-                    "--bigTableTableName",
-                    "v2Events",
-                    "--bigTableTopicName",
-                    "new-vaa-devnet",
-                    "--bigTableKeyPath",
-                    "/tmp/mounted-keys/bigtable-key.json",
-                    "--bigTableGCPProject",
-                    gcpProject,
-                ]
-
-            if evm2:
-                container["command"] += [
-                    "--bscRPC",
-                    "ws://eth-devnet2:8545",
-                ]
-            else:
-                container["command"] += [
-                    "--bscRPC",
-                    "ws://eth-devnet:8545",
-                ]
-
-            if solana:
-                container["command"] += [
-                    "--solanaWS",
-                    "ws://solana-devnet:8900",
-                    "--solanaRPC",
-                    "http://solana-devnet:8899",
-                ]
-
-            if terra_classic:
-                container["command"] += [
-                    "--terraWS",
-                    "ws://terra-terrad:26657/websocket",
-                    "--terraLCD",
-                    "http://terra-terrad:1317",
-                    "--terraContract",
-                    "terra18vd8fpwxzck93qlwghaj6arh4p7c5n896xzem5",
-                ]
-
-            if terra2:
-                container["command"] += [
-                    "--terra2WS",
-                    "ws://terra2-terrad:26657/websocket",
-                    "--terra2LCD",
-                    "http://terra2-terrad:1317",
-                    "--terra2Contract",
-                    "terra14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9ssrc8au",
-                ]
-
-            if algorand:
-                container["command"] += [
-                    "--algorandAppID",
-                    "4",
-                    "--algorandIndexerRPC",
-                    "http://algorand:8980",
-                    "--algorandIndexerToken",
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    "--algorandAlgodRPC",
-                    "http://algorand:4001",
-                    "--algorandAlgodToken",
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                ]
-
-            if guardiand_governor:
-                container["command"] += [
-                    "--chainGovernorEnabled"
-                ]
-
-            if near:
-                container["command"] += [
-                    "--nearRPC",
-                    "http://near:3030",
-                    "--nearContract",
-                    "wormhole.test.near"
-                ]
-
     return encode_yaml_stream(node_yaml)
 
 k8s_yaml_with_ns(build_node_yaml())
 
-guardian_resource_deps = ["proto-gen", "eth-devnet"]
-if evm2:
-    guardian_resource_deps = guardian_resource_deps + ["eth-devnet2"]
-if solana:
-    guardian_resource_deps = guardian_resource_deps + ["solana-devnet"]
-if near:
-    guardian_resource_deps = guardian_resource_deps + ["near"]
-if terra_classic:
-    guardian_resource_deps = guardian_resource_deps + ["terra-terrad"]
-if terra2:
-    guardian_resource_deps = guardian_resource_deps + ["terra2-terrad"]
-if algorand:
-    guardian_resource_deps = guardian_resource_deps + ["algorand"]
+guardian_resource_deps = ["proto-gen"]
 
 k8s_resource(
     "guardian",
@@ -322,7 +201,7 @@ if node_metrics:
 
 
 # spy
-k8s_yaml_with_ns("devnet/spy.yaml")
+k8s_yaml_with_ns("swim_testnet/spy.yaml")
 
 k8s_resource(
     "spy",
@@ -335,64 +214,6 @@ k8s_resource(
     trigger_mode = trigger_mode,
 )
 
-if solana:
-    # solana client cli (used for devnet setup)
-
-    docker_build(
-        ref = "bridge-client",
-        context = ".",
-        only = ["./proto", "./solana", "./clients"],
-        dockerfile = "Dockerfile.client",
-        # Ignore target folders from local (non-container) development.
-        ignore = ["./solana/*/target"],
-    )
-
-    # solana smart contract
-
-    docker_build(
-        ref = "solana-contract",
-        context = "solana",
-        dockerfile = "solana/Dockerfile",
-        target = "builder",
-        build_args = {"BRIDGE_ADDRESS": "Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o"}
-    )
-
-    # solana local devnet
-
-    k8s_yaml_with_ns("devnet/solana-devnet.yaml")
-
-    k8s_resource(
-        "solana-devnet",
-        port_forwards = [
-            port_forward(8899, name = "Solana RPC [:8899]", host = webHost),
-            port_forward(8900, name = "Solana WS [:8900]", host = webHost),
-            port_forward(9000, name = "Solana PubSub [:9000]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["solana"],
-        trigger_mode = trigger_mode,
-    )
-
-# eth devnet
-
-docker_build(
-    ref = "eth-node",
-    context = "./ethereum",
-    dockerfile = "./ethereum/Dockerfile",
-
-    # ignore local node_modules (in case they're present)
-    ignore = ["./ethereum/node_modules"],
-
-    # sync external scripts for incremental development
-    # (everything else needs to be restarted from scratch for determinism)
-    #
-    # This relies on --update-mode=exec to work properly with a non-root user.
-    # https://github.com/tilt-dev/tilt/issues/3708
-    live_update = [
-        sync("./ethereum/src", "/home/node/app/src"),
-    ],
-)
-
 if spy_relayer:
     docker_build(
         ref = "redis",
@@ -401,7 +222,7 @@ if spy_relayer:
         dockerfile = "third_party/redis/Dockerfile",
     )
 
-    k8s_yaml_with_ns("devnet/redis.yaml")
+    k8s_yaml_with_ns("swim_testnet/redis.yaml")
 
     k8s_resource(
         "redis",
@@ -420,7 +241,7 @@ if spy_relayer:
         live_update = []
     )
 
-    k8s_yaml_with_ns("devnet/spy-listener.yaml")
+    k8s_yaml_with_ns("swim_testnet/spy-listener.yaml")
 
     k8s_resource(
         "spy-listener",
@@ -434,7 +255,7 @@ if spy_relayer:
         trigger_mode = trigger_mode,
     )
 
-    k8s_yaml_with_ns("devnet/spy-relayer.yaml")
+    k8s_yaml_with_ns("swim_testnet/spy-relayer.yaml")
 
     k8s_resource(
         "spy-relayer",
@@ -446,7 +267,7 @@ if spy_relayer:
         trigger_mode = trigger_mode,
     )
 
-    k8s_yaml_with_ns("devnet/spy-wallet-monitor.yaml")
+    k8s_yaml_with_ns("swim_testnet/spy-wallet-monitor.yaml")
 
     k8s_resource(
         "spy-wallet-monitor",
@@ -455,264 +276,5 @@ if spy_relayer:
             port_forward(8084, name = "Prometheus [:8084]", host = webHost),
         ],
         labels = ["spy-relayer"],
-        trigger_mode = trigger_mode,
-    )
-
-k8s_yaml_with_ns("devnet/eth-devnet.yaml")
-
-k8s_resource(
-    "eth-devnet",
-    port_forwards = [
-        port_forward(8545, name = "Ganache RPC [:8545]", host = webHost),
-    ],
-    resource_deps = ["const-gen"],
-    labels = ["evm"],
-    trigger_mode = trigger_mode,
-)
-
-if evm2:
-    k8s_yaml_with_ns("devnet/eth-devnet2.yaml")
-
-    k8s_resource(
-        "eth-devnet2",
-        port_forwards = [
-            port_forward(8546, name = "Ganache RPC [:8546]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["evm"],
-        trigger_mode = trigger_mode,
-    )
-
-
-if ci_tests:
-    docker_build(
-        ref = "sdk-test-image",
-        context = ".",
-        dockerfile = "testing/Dockerfile.sdk.test",
-        only = [],
-        live_update = [
-            sync("./sdk/js/src", "/app/sdk/js/src"),
-            sync("./testing", "/app/testing"),
-        ],
-    )
-    docker_build(
-        ref = "spydk-test-image",
-        context = ".",
-        dockerfile = "testing/Dockerfile.spydk.test",
-        only = [],
-        live_update = [
-            sync("./spydk/js/src", "/app/spydk/js/src"),
-            sync("./testing", "/app/testing"),
-        ],
-    )
-
-    k8s_yaml_with_ns("devnet/tests.yaml")
-
-    # separate resources to parallelize docker builds
-    k8s_resource(
-        "sdk-ci-tests",
-        labels = ["ci"],
-        trigger_mode = trigger_mode,
-        resource_deps = ["guardian"],
-    )
-    k8s_resource(
-        "spydk-ci-tests",
-        labels = ["ci"],
-        trigger_mode = trigger_mode,
-        resource_deps = ["guardian"],
-    )
-
-# e2e
-if e2e:
-    k8s_yaml_with_ns("devnet/e2e.yaml")
-
-    docker_build(
-        ref = "e2e",
-        context = "e2e",
-        dockerfile = "e2e/Dockerfile",
-        network = "host",
-    )
-
-    k8s_resource(
-        "e2e",
-        port_forwards = [
-            port_forward(6080, name = "VNC [:6080]", host = webHost, link_path = "/vnc_auto.html"),
-        ],
-        labels = ["ci"],
-        trigger_mode = trigger_mode,
-    )
-
-# bigtable
-if explorer:
-    k8s_yaml_with_ns("devnet/bigtable.yaml")
-
-    k8s_resource(
-        "bigtable-emulator",
-        port_forwards = [port_forward(8086, name = "BigTable clients [:8086]")],
-        labels = ["explorer"],
-        trigger_mode = trigger_mode,
-    )
-
-    k8s_resource(
-        "pubsub-emulator",
-        port_forwards = [port_forward(8085, name = "PubSub listeners [:8085]")],
-        labels = ["explorer"],
-    )
-
-    docker_build(
-        ref = "cloud-functions",
-        context = "./event_database",
-        dockerfile = "./event_database/functions_server/Dockerfile",
-        live_update = [
-            sync("./event_database/cloud_functions", "/app/cloud_functions"),
-        ],
-    )
-    k8s_resource(
-        "cloud-functions",
-        resource_deps = ["proto-gen", "bigtable-emulator", "pubsub-emulator"],
-        port_forwards = [port_forward(8090, name = "Cloud Functions [:8090]", host = webHost)],
-        labels = ["explorer"],
-        trigger_mode = trigger_mode,
-    )
-
-if terra_classic:
-    docker_build(
-        ref = "terra-image",
-        context = "./terra/devnet",
-        dockerfile = "terra/devnet/Dockerfile",
-    )
-
-    docker_build(
-        ref = "terra-contracts",
-        context = "./terra",
-        dockerfile = "./terra/Dockerfile",
-    )
-
-    k8s_yaml_with_ns("devnet/terra-devnet.yaml")
-
-    k8s_resource(
-        "terra-terrad",
-        port_forwards = [
-            port_forward(26657, name = "Terra RPC [:26657]", host = webHost),
-            port_forward(1317, name = "Terra LCD [:1317]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["terra"],
-        trigger_mode = trigger_mode,
-    )
-
-    k8s_resource(
-        "terra-postgres",
-        labels = ["terra"],
-        trigger_mode = trigger_mode,
-    )
-
-    k8s_resource(
-        "terra-fcd",
-        resource_deps = ["terra-terrad", "terra-postgres"],
-        port_forwards = [port_forward(3060, name = "Terra FCD [:3060]", host = webHost)],
-        labels = ["terra"],
-        trigger_mode = trigger_mode,
-    )
-
-if terra2:
-    docker_build(
-        ref = "terra2-image",
-        context = "./cosmwasm/devnet",
-        dockerfile = "cosmwasm/devnet/Dockerfile",
-    )
-
-    docker_build(
-        ref = "terra2-contracts",
-        context = "./cosmwasm",
-        dockerfile = "./cosmwasm/Dockerfile",
-    )
-
-    k8s_yaml_with_ns("devnet/terra2-devnet.yaml")
-
-    k8s_resource(
-        "terra2-terrad",
-        port_forwards = [
-            port_forward(26658, container_port = 26657, name = "Terra 2 RPC [:26658]", host = webHost),
-            port_forward(1318, container_port = 1317, name = "Terra 2 LCD [:1318]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["terra2"],
-        trigger_mode = trigger_mode,
-    )
-
-    k8s_resource(
-        "terra2-postgres",
-        labels = ["terra2"],
-        trigger_mode = trigger_mode,
-    )
-
-    k8s_resource(
-        "terra2-fcd",
-        resource_deps = ["terra2-terrad", "terra2-postgres"],
-        port_forwards = [port_forward(3061, container_port = 3060, name = "Terra 2 FCD [:3061]", host = webHost)],
-        labels = ["terra2"],
-        trigger_mode = trigger_mode,
-    )
-
-if algorand:
-    k8s_yaml_with_ns("devnet/algorand-devnet.yaml")
-
-    docker_build(
-        ref = "algorand-algod",
-        context = "algorand/sandbox-algorand",
-        dockerfile = "algorand/sandbox-algorand/images/algod/Dockerfile"
-    )
-
-    docker_build(
-        ref = "algorand-indexer",
-        context = "algorand/sandbox-algorand",
-        dockerfile = "algorand/sandbox-algorand/images/indexer/Dockerfile"
-    )
-
-    docker_build(
-        ref = "algorand-contracts",
-        context = "algorand",
-        dockerfile = "algorand/Dockerfile",
-        ignore = ["algorand/test/*.*"]
-    )
-
-    k8s_resource(
-        "algorand",
-        port_forwards = [
-            port_forward(4001, name = "Algod [:4001]", host = webHost),
-            port_forward(4002, name = "KMD [:4002]", host = webHost),
-            port_forward(8980, name = "Indexer [:8980]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["algorand"],
-        trigger_mode = trigger_mode,
-    )
-
-
-if near:
-    k8s_yaml_with_ns("devnet/near-devnet.yaml")
-
-    docker_build(
-        ref = "near-node",
-        context = "near",
-        dockerfile = "near/Dockerfile",
-        only = ["Dockerfile", "node_builder.sh", "start_node.sh", "README.md", "cert.pem"],
-    )
-
-    docker_build(
-        ref = "near-contracts",
-        context = "near",
-        dockerfile = "near/Dockerfile.contracts",
-    )
-
-    k8s_resource(
-        "near",
-        port_forwards = [
-            port_forward(3030, name = "Node [:3030]", host = webHost),
-            port_forward(3031, name = "webserver [:3031]", host = webHost),
-        ],
-        resource_deps = ["const-gen"],
-        labels = ["near"],
         trigger_mode = trigger_mode,
     )
