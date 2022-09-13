@@ -199,7 +199,8 @@ k8s_yaml_with_ns("swim_testnet/spy-listener.yaml")
 
 k8s_resource(
     "spy-listener",
-    resource_deps = ["proto-gen", "guardian", "redis"],
+    # resource_deps = ["proto-gen", "guardian", "redis"],
+    resource_deps = ["proto-gen", "redis"],
     port_forwards = [
         port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
         port_forward(4201, name = "REST [:4201]", host = webHost),
@@ -213,7 +214,8 @@ k8s_yaml_with_ns("swim_testnet/spy-relayer.yaml")
 
 k8s_resource(
     "spy-relayer",
-    resource_deps = ["proto-gen", "guardian", "redis"],
+    # resource_deps = ["proto-gen", "guardian", "redis"],
+    resource_deps = ["proto-gen", "redis"],
     port_forwards = [
         port_forward(8083, name = "Prometheus [:8083]", host = webHost),
     ],
@@ -225,7 +227,8 @@ k8s_yaml_with_ns("swim_testnet/spy-wallet-monitor.yaml")
 
 k8s_resource(
     "spy-wallet-monitor",
-    resource_deps = ["proto-gen", "guardian", "redis"],
+    # resource_deps = ["proto-gen", "guardian", "redis"],
+    resource_deps = ["proto-gen", "redis"],
     port_forwards = [
         port_forward(8084, name = "Prometheus [:8084]", host = webHost),
     ],
