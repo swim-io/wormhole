@@ -40,7 +40,6 @@ config.define_string("bigTableKeyPath", False, "Path to BigTable json key file")
 config.define_string("webHost", False, "Public hostname for port forwards")
 
 # Components
-config.define_bool("spy_relayer", False, "Enable spy relayer")
 config.define_bool("guardiand_debug", False, "Enable dlv endpoint for guardiand")
 config.define_bool("node_metrics", False, "Enable Prometheus & Grafana for Guardian metrics")
 config.define_bool("guardiand_governor", False, "Enable chain governor in guardiand")
@@ -52,7 +51,6 @@ gcpProject = cfg.get("gcpProject", "local-dev")
 bigTableKeyPath = cfg.get("bigTableKeyPath", "./event_database/devnet_key.json")
 webHost = cfg.get("webHost", "localhost")
 ci = cfg.get("ci", False)
-spy_relayer = cfg.get("spy_relayer", ci)
 guardiand_debug = cfg.get("guardiand_debug", False)
 node_metrics = cfg.get("node_metrics", False)
 guardiand_governor = cfg.get("guardiand_governor", False)
@@ -215,67 +213,67 @@ k8s_resource(
     trigger_mode = trigger_mode,
 )
 
-if spy_relayer:
-    docker_build(
-        ref = "redis",
-        context = ".",
-        only = ["./third_party"],
-        dockerfile = "third_party/redis/Dockerfile",
-    )
+# spy relayer
+docker_build(
+    ref = "redis",
+    context = ".",
+    only = ["./third_party"],
+    dockerfile = "third_party/redis/Dockerfile",
+)
 
-    k8s_yaml_with_ns("swim_testnet/redis.yaml")
+k8s_yaml_with_ns("swim_testnet/redis.yaml")
 
-    k8s_resource(
-        "redis",
-        port_forwards = [
-            port_forward(6379, name = "Redis Default [:6379]", host = webHost),
-        ],
-        labels = ["spy-relayer"],
-        trigger_mode = trigger_mode,
-    )
+k8s_resource(
+    "redis",
+    port_forwards = [
+        port_forward(6379, name = "Redis Default [:6379]", host = webHost),
+    ],
+    labels = ["spy-relayer"],
+    trigger_mode = trigger_mode,
+)
 
-    docker_build(
-        ref = "spy-relay-image",
-        context = ".",
-        only = ["./relayer/spy_relayer"],
-        dockerfile = "relayer/spy_relayer/Dockerfile",
-        live_update = []
-    )
+docker_build(
+    ref = "spy-relay-image",
+    context = ".",
+    only = ["./relayer/spy_relayer"],
+    dockerfile = "relayer/spy_relayer/Dockerfile",
+    live_update = []
+)
 
-    k8s_yaml_with_ns("swim_testnet/spy-listener.yaml")
+k8s_yaml_with_ns("swim_testnet/spy-listener.yaml")
 
-    k8s_resource(
-        "spy-listener",
-        resource_deps = ["proto-gen", "guardian", "redis"],
-        port_forwards = [
-            port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
-            port_forward(4201, name = "REST [:4201]", host = webHost),
-            port_forward(8082, name = "Prometheus [:8082]", host = webHost),
-        ],
-        labels = ["spy-relayer"],
-        trigger_mode = trigger_mode,
-    )
+k8s_resource(
+    "spy-listener",
+    resource_deps = ["proto-gen", "guardian", "redis"],
+    port_forwards = [
+        port_forward(6062, container_port = 6060, name = "Debug/Status Server [:6062]", host = webHost),
+        port_forward(4201, name = "REST [:4201]", host = webHost),
+        port_forward(8082, name = "Prometheus [:8082]", host = webHost),
+    ],
+    labels = ["spy-relayer"],
+    trigger_mode = trigger_mode,
+)
 
-    k8s_yaml_with_ns("swim_testnet/spy-relayer.yaml")
+k8s_yaml_with_ns("swim_testnet/spy-relayer.yaml")
 
-    k8s_resource(
-        "spy-relayer",
-        resource_deps = ["proto-gen", "guardian", "redis"],
-        port_forwards = [
-            port_forward(8083, name = "Prometheus [:8083]", host = webHost),
-        ],
-        labels = ["spy-relayer"],
-        trigger_mode = trigger_mode,
-    )
+k8s_resource(
+    "spy-relayer",
+    resource_deps = ["proto-gen", "guardian", "redis"],
+    port_forwards = [
+        port_forward(8083, name = "Prometheus [:8083]", host = webHost),
+    ],
+    labels = ["spy-relayer"],
+    trigger_mode = trigger_mode,
+)
 
-    k8s_yaml_with_ns("swim_testnet/spy-wallet-monitor.yaml")
+k8s_yaml_with_ns("swim_testnet/spy-wallet-monitor.yaml")
 
-    k8s_resource(
-        "spy-wallet-monitor",
-        resource_deps = ["proto-gen", "guardian", "redis"],
-        port_forwards = [
-            port_forward(8084, name = "Prometheus [:8084]", host = webHost),
-        ],
-        labels = ["spy-relayer"],
-        trigger_mode = trigger_mode,
-    )
+k8s_resource(
+    "spy-wallet-monitor",
+    resource_deps = ["proto-gen", "guardian", "redis"],
+    port_forwards = [
+        port_forward(8084, name = "Prometheus [:8084]", host = webHost),
+    ],
+    labels = ["spy-relayer"],
+    trigger_mode = trigger_mode,
+)
