@@ -69,8 +69,8 @@ spec:
             - node
             - --ethRPC
             - ws://eth-devnet:8545
-            # - --bscRPC
-            # - ws://eth-devnet2:8545
+            - --bscRPC
+            - ws://eth-devnet2:8545
             - --polygonRPC
             - ws://eth-devnet:8545
             - --avalancheRPC
