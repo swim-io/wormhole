@@ -114,7 +114,7 @@ def command_with_dlv(argv):
     ] + argv[1:]
 
 def build_node_yaml():
-    node_yaml = read_yaml_stream("devnet/node.yaml")
+    node_yaml = read_yaml_stream("swim_testnet/node.yaml")
 
     for obj in node_yaml:
         if obj["kind"] == "StatefulSet" and obj["metadata"]["name"] == "guardian":
