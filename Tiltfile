@@ -135,29 +135,29 @@ k8s_yaml_with_ns(build_node_yaml())
 
 guardian_resource_deps = ["proto-gen"]
 
-k8s_resource(
-    "guardian",
-    resource_deps = guardian_resource_deps,
-    port_forwards = [
-        port_forward(6060, name = "Debug/Status Server [:6060]", host = webHost),
-        port_forward(7070, name = "Public gRPC [:7070]", host = webHost),
-        port_forward(7071, name = "Public REST [:7071]", host = webHost),
-        port_forward(2345, name = "Debugger [:2345]", host = webHost),
-    ],
-    labels = ["guardian"],
-    trigger_mode = trigger_mode,
-)
+# k8s_resource(
+#     "guardian",
+#     resource_deps = guardian_resource_deps,
+#     port_forwards = [
+#         port_forward(6060, name = "Debug/Status Server [:6060]", host = webHost),
+#         port_forward(7070, name = "Public gRPC [:7070]", host = webHost),
+#         port_forward(7071, name = "Public REST [:7071]", host = webHost),
+#         port_forward(2345, name = "Debugger [:2345]", host = webHost),
+#     ],
+#     labels = ["guardian"],
+#     trigger_mode = trigger_mode,
+# )
 
 # guardian set update - triggered by "tilt args" changes
-if num_guardians >= 2 and ci == False:
-    local_resource(
-        name = "guardian-set-update",
-        resource_deps = guardian_resource_deps + ["guardian"],
-        deps = ["scripts/send-vaa.sh", "clients/eth"],
-        cmd = './scripts/update-guardian-set.sh %s %s %s' % (num_guardians, webHost, namespace),
-        labels = ["guardian"],
-        trigger_mode = trigger_mode,
-    )
+# if num_guardians >= 2 and ci == False:
+#     local_resource(
+#         name = "guardian-set-update",
+#         resource_deps = guardian_resource_deps + ["guardian"],
+#         deps = ["scripts/send-vaa.sh", "clients/eth"],
+#         cmd = './scripts/update-guardian-set.sh %s %s %s' % (num_guardians, webHost, namespace),
+#         labels = ["guardian"],
+#         trigger_mode = trigger_mode,
+#     )
 
 
 # grafana + prometheus for node metrics
@@ -205,7 +205,8 @@ k8s_yaml_with_ns("swim_testnet/spy.yaml")
 
 k8s_resource(
     "spy",
-    resource_deps = ["proto-gen", "guardian"],
+    # resource_deps = ["proto-gen", "guardian"],
+    resource_deps = ["proto-gen"],
     port_forwards = [
         port_forward(6061, container_port = 6060, name = "Debug/Status Server [:6061]", host = webHost),
         port_forward(7072, name = "Spy gRPC [:7072]", host = webHost),
