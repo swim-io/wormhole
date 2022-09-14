@@ -18,6 +18,7 @@ import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { ChainConfigInfo } from "../configureEnv";
 import { getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import { PromHelper } from "../helpers/promHelpers";
+import { parseTransferWithArbPayload } from "../utils/swim";
 
 const MAX_VAA_UPLOAD_RETRIES_SOLANA = 5;
 
@@ -70,7 +71,7 @@ export async function relaySolana(
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(signedVaaArray);
   const payloadBuffer = Buffer.from(parsedVAA.payload);
-  const transferPayload = parseTransferPayload(payloadBuffer);
+  const transferPayload = parseTransferWithArbPayload(payloadBuffer);
   logger.debug("Calculating the fee destination address");
   const solanaMintAddress =
     transferPayload.originChain === CHAIN_ID_SOLANA

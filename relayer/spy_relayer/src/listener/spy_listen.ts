@@ -28,6 +28,8 @@ import {
   parseAndValidateVaa,
   ParsedTransferPayload,
   ParsedVaa,
+  ParsedTransferWithArbDataPayload,
+  ParsedSwimData
 } from "./validation";
 
 let metrics: PromHelper;
@@ -60,9 +62,9 @@ export async function run(ph: PromHelper) {
     emitterFilter: { chainId: ChainId; emitterAddress: string };
   }[] = [];
   for (let i = 0; i < env.spyServiceFilters.length; i++) {
-    logger.info("Getting spyServiceFiltera " + i);
+    logger.debug("Getting spyServiceFiltera " + i);
     const filter = env.spyServiceFilters[i];
-    logger.info(
+    logger.debug(
       "Getting spyServiceFilter[" +
         i +
         "]: chainId = " +
@@ -80,17 +82,17 @@ export async function run(ph: PromHelper) {
         ),
       },
     };
-    logger.info("Getting spyServiceFilterc " + i);
-    logger.info(
+    logger.debug("Getting spyServiceFilterc " + i);
+    logger.debug(
       "adding filter: chainId: [" +
         typedFilter.emitterFilter.chainId +
         "], emitterAddress: [" +
         typedFilter.emitterFilter.emitterAddress +
         "]"
     );
-    logger.info("Getting spyServiceFilterd " + i);
+    logger.debug("Getting spyServiceFilterd " + i);
     typedFilters.push(typedFilter);
-    logger.info("Getting spyServiceFiltere " + i);
+    logger.debug("Getting spyServiceFiltere " + i);
   }
 
   logger.info(
@@ -149,19 +151,16 @@ async function processVaa(rawVaa: Uint8Array) {
   const vaaUri =
     vaaUriPrelude + encodeURIComponent(Buffer.from(rawVaa).toString("base64"));
 
-  const validationResults: ParsedVaa<ParsedTransferPayload> | string =
-    await parseAndValidateVaa(rawVaa);
-
-  metrics.incIncoming();
-
-  if (typeof validationResults === "string") {
+  logger.debug("processing rawVAA: " + uint8ArrayToHex(rawVaa));
+  try {
+    const validationResults: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = await parseAndValidateVaa(rawVaa);
+    metrics.incIncoming();
+    const parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> = validationResults;
+    pushVaaToRedis(parsedVAA, uint8ArrayToHex(rawVaa));
+  } catch(e) {
     logger.debug("Rejecting spied request due validation failure");
     return;
   }
-
-  const parsedVAA: ParsedVaa<ParsedTransferPayload> = validationResults;
-
-  await pushVaaToRedis(parsedVAA, uint8ArrayToHex(rawVaa));
 }
 
 async function encodeEmitterAddress(

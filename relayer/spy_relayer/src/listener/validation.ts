@@ -1,8 +1,9 @@
 import {
   ChainId,
-  hexToNativeString,
-  parseTransferPayload,
+  tryHexToNativeString,
   uint8ArrayToHex,
+  tryNativeToHexString,
+  CHAIN_ID_ETH
 } from "@certusone/wormhole-sdk";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { getListenerEnvironment } from "../configureEnv";
@@ -13,6 +14,11 @@ import {
   getKey,
   RedisTables,
 } from "../helpers/redisHelper";
+import {
+  parseSwimPayload,
+  parseTransferWithArbPayload
+} from "../utils/swim";
+import { BigNumber } from "@ethersproject/bignumber";
 
 const logger = getLogger();
 
@@ -58,7 +64,7 @@ export function validateInit(): boolean {
 
 export async function parseAndValidateVaa(
   rawVaa: Uint8Array
-): Promise<string | ParsedVaa<ParsedTransferPayload>> {
+): Promise<ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>> {
   logger.debug("About to validate: " + uint8ArrayToHex(rawVaa));
   let parsedVaa: ParsedVaa<Uint8Array> | null = null;
   try {
@@ -67,7 +73,9 @@ export async function parseAndValidateVaa(
     logger.error("Encountered error while parsing raw VAA " + e);
   }
   if (!parsedVaa) {
-    return "Unable to parse the specified VAA.";
+    const errorMsg = "Unable to parse the specified VAA.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
   }
   const env = getListenerEnvironment();
 
@@ -105,69 +113,82 @@ export async function parseAndValidateVaa(
   //   return "VAA is not from a monitored contract.";
   // }
 
-  const isCorrectPayloadType = parsedVaa.payload[0] === 1;
-
-  if (!isCorrectPayloadType) {
-    logger.debug("Specified vaa is not payload type 1.");
-    return "Specified vaa is not payload type 1..";
+  const payloadType = parsedVaa.payload[0];
+  let parsedVaaPayload: any = null;
+  if (payloadType !== 3) {
+    const error = "Specified vaa is not TransferWithPayload"
+    logger.debug(error);
+    throw new Error(error);
   }
 
-  let parsedPayload: any = null;
   try {
-    parsedPayload = parseTransferPayload(Buffer.from(parsedVaa.payload));
+    parsedVaaPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
   } catch (e) {
     logger.error("Encountered error while parsing vaa payload" + e);
   }
 
-  if (!parsedPayload) {
-    logger.debug("Failed to parse the transfer payload.");
-    return "Could not parse the transfer payload.";
+  if (!parsedVaaPayload) {
+    const error =  "Could not parse the transfer with data payload.";
+    logger.debug(error);
+    throw new Error(error);
   }
 
-  const originAddressNative = hexToNativeString(
-    parsedPayload.originAddress,
-    parsedPayload.originChain
+  // Make sure this is specifically a Swim Payload 3
+  let swimPayload: any = null;
+  try {
+    swimPayload = parseSwimPayload(Buffer.from(parsedVaaPayload.extraPayload));
+  } catch (e) {
+    const error = "Encountered error while parsing swim payload from arbitrary data in payload 3" + e;
+    logger.error(error);
+    throw new Error(error);
+  }
+
+  // We should only be getting messages from one specific swim EVM routing contract.
+  const expectedSwimEvmContractAddress = tryNativeToHexString(env.swimEvmContractAddress, CHAIN_ID_ETH);
+  if (parsedVaaPayload.senderAddress != expectedSwimEvmContractAddress) {
+    const error = "senderAddress is not the expected address, got " + parsedVaaPayload.senderAddress + " but should be " + expectedSwimEvmContractAddress;
+    logger.error(error);
+    throw new Error(error);
+  }
+
+  const originAddressNative = tryHexToNativeString(
+    parsedVaaPayload.originAddress,
+    parsedVaaPayload.originChain
   );
 
   const isApprovedToken = env.supportedTokens.find((token) => {
     return (
       originAddressNative &&
       token.address.toLowerCase() === originAddressNative.toLowerCase() &&
-      token.chainId === parsedPayload.originChain
+      token.chainId === parsedVaaPayload.originChain
     );
   });
 
   if (!isApprovedToken) {
-    logger.debug("Token transfer is not for an approved token.");
-    return "Token transfer is not for an approved token.";
+    const error = "Token transfer is not for an approved token.";
+    logger.debug(error);
+    throw new Error(error);
   }
 
-  //TODO configurable
-  const sufficientFee = parsedPayload.fee && parsedPayload.fee > 0;
+  // TODO fee check
+  logger.debug("TODO check fee from swim payload");
 
-  if (!sufficientFee) {
-    logger.debug("Token transfer does not have a sufficient fee.");
-    return "Token transfer does not have a sufficient fee.";
-  }
+  const key = getKey(parsedVaaPayload.originChain, originAddressNative as string); //was null checked above
 
-  const key = getKey(parsedPayload.originChain, originAddressNative as string); //was null checked above
-
-  const isQueued = await checkQueue(key);
+  const isQueued = await exports.checkQueue(key);
   if (isQueued) {
     return isQueued;
   }
   //TODO maybe an is redeemed check?
 
-  const fullyTyped = { ...parsedVaa, payload: parsedPayload };
+  const fullyTyped = { ...parsedVaa, payload: { ...parsedVaaPayload, extraPayload: swimPayload }};
   return fullyTyped;
 }
 
-async function checkQueue(key: string): Promise<string | null> {
+export async function checkQueue(key: string): Promise<string | null> {
   try {
     const backupQueue = getBackupQueue();
-    const queuedRecord = backupQueue.find((record) => {
-      record[0] === key;
-    });
+    const queuedRecord = backupQueue.find((record) => record[0] === key);
 
     if (queuedRecord) {
       logger.debug("VAA was already in the listener queue");
@@ -235,4 +256,23 @@ export type ParsedTransferPayload = {
   targetAddress: Uint8Array; //hex
   targetChain: ChainId;
   fee?: BigInt;
+};
+
+export type ParsedTransferWithArbDataPayload<T> = {
+  amount: BigNumber;
+  originAddress: Uint8Array; //hex
+  originChain: ChainId;
+  targetAddress: Uint8Array; //hex
+  targetChain: ChainId;
+  senderAddress: Uint8Array; //hex
+  extraPayload: T;
+};
+
+export type ParsedSwimData = {
+  swimMessageVersion: number;
+  targetChainRecipient: Uint8Array; //hex
+  propellerEnabled: boolean;
+  gasKickstartEnabled: boolean;
+  swimTokenNumber: number;
+  memoId: Uint8Array; //hex
 };

@@ -86,6 +86,7 @@ export type RelayerEnvironment = {
   clearRedisOnInit: boolean;
   demoteWorkingOnInit: boolean;
   supportedTokens: { chainId: ChainId; address: string }[];
+  swimEvmContractAddress: string;
 };
 
 export type ChainConfigInfo = {
@@ -110,6 +111,7 @@ export type ListenerEnvironment = {
   restPort: number;
   numSpyWorkers: number;
   supportedTokens: { chainId: ChainId; address: string }[];
+  swimEvmContractAddress: string;
 };
 
 let listenerEnv: ListenerEnvironment | undefined = undefined;
@@ -130,6 +132,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   let restPort: number;
   let numSpyWorkers: number;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
+  let swimEvmContractAddress: string;
   const logger = getLogger();
 
   if (!process.env.SPY_SERVICE_HOST) {
@@ -202,12 +205,19 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
     }
   }
 
+  logger.info("Getting SWIM_EVM_ROUTING_ADDRESS...");
+  if(!process.env.SWIM_EVM_ROUTING_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
+  }
+  swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
+
   return {
     spyServiceHost,
     spyServiceFilters,
     restPort,
     numSpyWorkers,
     supportedTokens,
+    swimEvmContractAddress
   };
 };
 
@@ -230,6 +240,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let clearRedisOnInit: boolean;
   let demoteWorkingOnInit: boolean;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
+  let swimEvmContractAddress: string;
 
   if (!process.env.REDIS_HOST) {
     throw new Error("Missing required environment variable: REDIS_HOST");
@@ -290,6 +301,12 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     }
   }
 
+  if(!process.env.SWIM_EVM_ROUTING_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
+  }
+  swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
+
+
   return {
     supportedChains,
     redisHost,
@@ -297,6 +314,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     clearRedisOnInit,
     demoteWorkingOnInit,
     supportedTokens,
+    swimEvmContractAddress
   };
 };
 
