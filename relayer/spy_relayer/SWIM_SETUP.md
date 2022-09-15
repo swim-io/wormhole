@@ -2,17 +2,19 @@
 This rough document focuses on setting up an environment that transfers from testnet Eth to testnet BNB, but should
 be able to be used for other deployments as well.
 
-# Environment setup
+# Running testnet on local machine
 
-For testnet you'll need these things running:
+For testnet on a local machine, you'll need these things running:
 - A spy container reading from testnet wormhole guardians
-- A container running `npm run spy_relay`. Alternatively, you can have each portion of the engine running in separate containers. (see Tiltfile)
+- A container running `npm run swim_spy_relay`. 
 - A container running redis
 
 ## Running redis:
 ```bash
 docker run --rm -p6379:6379 --name redis-docker -d redis
-
+```
+To view redis tables:
+```bash
 docker exec -it redis-docker redis-cli
 ```
 
@@ -31,10 +33,25 @@ spy --nodeKey /node.key --spyRPC "[::]:7073" --network /wormhole/testnet/2/1 --b
 ```bash
 npm run swim_spy_relay
 ```
+`swim_spy_relay` uses the config file `.env.testnet.local`, which is already configured for local machine usage.
+
+# Running testnet remotely using Tilt
+
+To run testnet on Tilt, you'll need to setup a separate remote environment. You can use Digital Ocean to create a new droplet, then ssh into that droplet.
+
+Once inside the droplet, run these commands:
+```bash
+$ cd wormhole/relayer/spy_relayer
+$ npm install
+$ npm run build
+$ cd ../.. 
+$ tilt up
+```
+This will use the config files located in `/swim_testnet`, as well as the config files `.env.testnet.relayer` and `.env.testnet.listener`
 
 # Config setup
 
-There's a config file `.env.testnet`. If you are making a config file, then follow these instructions:
+If you are making a new config file, then follow these instructions:
 
 You'll need a configuration file similar to `.env.sample`. If you're running each portion of the engine separately make sure
 they have correct configuration files for each (or share one for all of them). This is assuming you have one config file.
