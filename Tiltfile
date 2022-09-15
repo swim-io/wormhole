@@ -1,9 +1,7 @@
-# This Tiltfile contains the deployment and build config for the Wormhole devnet.
-#
-#  We use Buildkit cache mounts and careful layering to avoid unnecessary rebuilds - almost
-#  all source code changes result in small, incremental rebuilds. Dockerfiles are written such
-#  that, for example, changing the contract source code won't cause Solana itself to be rebuilt.
-#
+# This Tiltfile is for Swim usage. It contains the deployment and build config to deploy a propeller engine (aka spy relayer) 
+# that is connected to the Wormhole testnet guardian network. It is heavily modified from the original
+# Wormhole Tiltfile, essentially stripping away all unnecessary parts. 
+# TODO - there's still a guardian container being built that isn't needed, can strip away everything there
 
 load("ext://namespace", "namespace_create", "namespace_inject")
 load("ext://secret", "secret_yaml_generic")
