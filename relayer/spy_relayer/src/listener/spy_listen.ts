@@ -38,9 +38,6 @@ export async function run(ph: PromHelper) {
       "]"
   );
 
-  logger.debug("CUSTOM_BACKEND");
-  logger.debug(process.env.CUSTOM_BACKEND);
-  logger.debug(getBackend().constructor.name);
   let typedFilters = await getBackend().listener.getEmitterFilters();
   const wrappedFilters = { filters: typedFilters };
 
