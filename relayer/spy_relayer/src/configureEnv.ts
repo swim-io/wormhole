@@ -205,13 +205,13 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
       });
     }
   }
-
-  logger.info("Setting the listener backend...");
   logger.info("Getting SWIM_EVM_ROUTING_ADDRESS...");
   if(!process.env.SWIM_EVM_ROUTING_ADDRESS) {
     throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
   }
   swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
+
+  logger.info("Setting the listener backend...");
 
   return {
     spyServiceHost,
