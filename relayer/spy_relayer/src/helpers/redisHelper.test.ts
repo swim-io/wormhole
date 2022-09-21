@@ -10,7 +10,6 @@ import {
   importCoreWasm,
   setDefaultWasm,
   uint8ArrayToHex,
-  tryNativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { chainIDStrings } from "../utils/wormhole";
 import {
@@ -25,10 +24,7 @@ import {
 } from "./redisHelper";
 import {
   ETH_PUBLIC_KEY,
-  ETH_PRIVATE_KEY,
-  SOLANA_CORE_BRIDGE_ADDRESS,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
-  TEST_APPROVED_ETH_TOKEN,
 } from "../__tests__/consts";
 import { BigNumber } from "@ethersproject/bignumber";
 import {
@@ -37,7 +33,7 @@ import {
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
   convertAddressToUint8,
-} from "../__tests__/utils";
+} from "../__tests__/testUtils";
 
 
 const TEST_KEY = `{"chain_id":3,"emitter_address":"0000000000000000000000007cf7b764e38a0a5e967972c1df77d432510564e2","sequence":77391}`;
@@ -70,7 +66,7 @@ memoId.writeUInt8(2, 0);
 
 const parsedSwimData = {
   swimMessageVersion: 1,
-  targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+  targetChainRecipient: targetChainRecipientStr, 
   propellerEnabled: true,
   gasKickstartEnabled: true,
   swimTokenNumber: 2,
@@ -87,12 +83,12 @@ const encodedSwim = encodeSwimPayload(
 );
 
 const parsedTransferWithPoolPayload = {
-  amount: BigNumber.from(20),
-  originAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
+  amount: BigInt(123),
+  originAddress: emitterAddressStr,
   originChain: CHAIN_ID_ETH,
-  targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+  targetAddress: targetChainRecipientStr,
   targetChain: CHAIN_ID_SOLANA,
-  senderAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
+  senderAddress: emitterAddressStr,
   extraPayload: parsedSwimData
 };
 

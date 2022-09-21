@@ -7,7 +7,7 @@ import {
 import { Mutex } from "async-mutex";
 import { createClient, RedisClientType } from "redis";
 import { getCommonEnvironment } from "../configureEnv";
-import { ParsedTransferWithArbDataPayload, ParsedSwimData, ParsedVaa } from "../listener/validation";
+import { ParsedTransferWithArbDataPayload, ParsedSwimData, ParsedVaa, ParsedTransferPayload } from "../listener/validation";
 import { chainIDStrings } from "../utils/wormhole";
 import { getScopedLogger } from "./logHelper";
 import { PromHelper } from "./promHelpers";
@@ -205,7 +205,7 @@ export function initPayloadWithVAA(vaa_bytes: string): StorePayload {
 }
 
 export function storeKeyFromParsedVAA(
-  parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>
+  parsedVAA: ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>> | ParsedVaa<ParsedTransferPayload>
 ): StoreKey {
   return {
     chain_id: parsedVAA.emitterChain as number,

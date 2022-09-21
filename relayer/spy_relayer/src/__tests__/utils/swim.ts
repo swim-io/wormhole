@@ -8,11 +8,11 @@ import { describe, expect, jest, test, it } from "@jest/globals";
 import {
   ETH_PUBLIC_KEY,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
-} from "./consts";
+} from "../consts";
 import {
   parseTransferWithArbPayload,
   parseSwimPayload,
-} from "../utils/swim";
+} from "../../utils/swim";
 import { BigNumber } from "@ethersproject/bignumber";
 import {
   encodeSwimPayload,
@@ -20,7 +20,7 @@ import {
   convertAddressToHexBuffer,
   convertAddressToUint8,
   toBigNumberHex,
-} from "./utils"
+} from "../testUtils"
 
 setDefaultWasm("node");
 

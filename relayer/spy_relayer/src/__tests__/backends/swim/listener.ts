@@ -1,7 +1,7 @@
 // createCommonEnvironment and createListenerEnvironment get invoked, so set these env variables
 process.env.LOG_LEVEL = "debug";
 process.env.REST_PORT = "1111";
-require("../helpers/loadConfig");
+require("../../../helpers/loadConfig");
 
 import {
   CHAIN_ID_ETH,
@@ -12,18 +12,18 @@ import {
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { describe, expect, jest, test } from "@jest/globals";
 import {
-  parseAndValidateVaa,
   parseVaaTyped,
   ParsedVaa,
   ParsedTransferWithArbDataPayload,
   ParsedSwimData
-} from "../listener/validation";
+} from "../../../listener/validation";
+import { SwimListener } from "../../../backends/swim/listener";
 import {
   ETH_PUBLIC_KEY,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
   TEST_APPROVED_ETH_TOKEN,
   TEST_SWIM_EVM_ROUTING_ADDRESS,
-} from "./consts";
+} from "../../consts";
 import {
   signAndEncodeVaa,
   encodeSwimPayload,
@@ -32,15 +32,17 @@ import {
   convertAddressToUint8,
   convertUint8ToAddress,
   toBigNumberHex
-} from "./utils";
+} from "../../testUtils";
 import { BigNumber } from "@ethersproject/bignumber";
 
 setDefaultWasm("node");
 
 jest.setTimeout(10000);
 
-describe("parseAndValidateVaa", () => {
+
+describe("validate", () => {
   test("successful swim payload", async () => {
+    const swimListener = new SwimListener();
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
     const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
     const memoId = Buffer.alloc(16);
@@ -86,10 +88,6 @@ describe("parseAndValidateVaa", () => {
       transferWithPoolPayload.extraPayload
     );
 
-    // mock Redis call https://medium.com/welldone-software/jest-how-to-mock-a-function-call-inside-a-module-21c05c57a39f
-    const validation = require("../listener/validation");
-    jest.spyOn(validation, 'checkQueue').mockReturnValue(null);
-
     const encodedVaa = signAndEncodeVaa(
       16,
       32,
@@ -100,7 +98,7 @@ describe("parseAndValidateVaa", () => {
     )
 
     const rawVaa = Uint8Array.from(encodedVaa);
-    let result = await parseAndValidateVaa(rawVaa);
+    let result = await swimListener.validate(rawVaa);
     expect(typeof result).toBe("object");
     result = result as ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>;
 
@@ -131,6 +129,7 @@ describe("parseAndValidateVaa", () => {
   });
 
   test("swim payload does not have expected SWIM_EVM_ROUTING_ADDRESS", async () => {
+    const swimListener = new SwimListener();
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
     const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
     const memoId = Buffer.alloc(16);
@@ -174,9 +173,6 @@ describe("parseAndValidateVaa", () => {
       transferWithPoolPayload.extraPayload
     );
 
-    const validation = require("../listener/validation");
-    jest.spyOn(validation, 'checkQueue').mockReturnValue(null);
-
     const encodedVaa = signAndEncodeVaa(
       16,
       32,
@@ -188,9 +184,7 @@ describe("parseAndValidateVaa", () => {
 
     const rawVaa = Uint8Array.from(encodedVaa);
 
-    await expect(parseAndValidateVaa(rawVaa)).rejects.toEqual(
-      Error("senderAddress is not the expected address, got 0000000000000000000000001111111111111111111111111111111111111111 but should be 0000000000000000000000000290fb167208af455bb137780163b7b7a9a10c16")
-    );
+    expect(await swimListener.validate(rawVaa)).toEqual("Validation failed");
   });
 });
 

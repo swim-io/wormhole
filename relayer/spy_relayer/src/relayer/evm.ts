@@ -31,6 +31,7 @@ export function newProvider(
 export async function relayEVM(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
+  unwrapNative: boolean,
   checkOnly: boolean,
   walletPrivateKey: string,
   relayLogger: ScopedLogger,
@@ -68,7 +69,14 @@ export async function relayEVM(
     return { redeemed: false, result: "not redeemed" };
   }
 
-  logger.info("Will redeem using pubkey: %s", await signer.getAddress());
+  if (unwrapNative) {
+    logger.info(
+      "Will redeem and unwrap using pubkey: %s",
+      await signer.getAddress()
+    );
+  } else {
+    logger.info("Will redeem using pubkey: %s", await signer.getAddress());
+  }
   logger.debug("Redeeming.");
   let overrides = {};
   if (chainConfigInfo.chainId === CHAIN_ID_POLYGON) {
