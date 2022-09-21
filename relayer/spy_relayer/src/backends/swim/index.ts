@@ -1,4 +1,4 @@
-import { Backend, Relayer, Listener } from "../definitions";
+import { Backend } from "../definitions";
 import { SwimListener } from "./listener";
 import { SwimRelayer } from "./relayer";
 
