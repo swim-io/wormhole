@@ -333,7 +333,8 @@ export class TokenBridgeRelayer implements Relayer {
           checkOnly,
           walletPrivateKey,
           logger,
-          metrics
+          metrics,
+          "swimEvmContractAddress"
         );
         return {
           status: evmResult.redeemed ? Status.Completed : Status.Error,
