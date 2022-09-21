@@ -37,9 +37,7 @@ export async function run() {
     app.get("/relayvaa/:vaa", async (req: Request, res: Response) => {
       try {
         const rawVaa = Uint8Array.from(Buffer.from(req.params.vaa, "base64"));
-        logger.debug("CUSTOM_BACKEND", process.env.CUSTOM_BACKEND);
         await getBackend().listener.process(rawVaa);
-        logger.debug("getBackend()", getBackend());
 
         res.status(200).json({ message: "Scheduled" });
       } catch (e) {
