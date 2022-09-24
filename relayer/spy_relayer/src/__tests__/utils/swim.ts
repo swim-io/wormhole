@@ -63,6 +63,7 @@ test("parseTransferWithPoolPayload", () => {
     targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
     propellerEnabled: true,
     gasKickstartEnabled: true,
+    maxSwimUSDFee: 1000n,
     swimTokenNumber: 1,
     memoId: Buffer.from("33", "hex")  
   };
@@ -72,6 +73,7 @@ test("parseTransferWithPoolPayload", () => {
     convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
     swimPayload.propellerEnabled,
     swimPayload.gasKickstartEnabled,
+    swimPayload.maxSwimUSDFee,
     swimPayload.swimTokenNumber,
     swimPayload.memoId
   );
@@ -123,6 +125,7 @@ describe("parseSwimPayload", () => {
       targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
+      maxSwimUSDFee: 1000n,
       swimTokenNumber: 1,
       memoId: memoId
     };
@@ -132,6 +135,7 @@ describe("parseSwimPayload", () => {
       convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
+      swimPayload.maxSwimUSDFee,
       swimPayload.swimTokenNumber,
       swimPayload.memoId,
     );
@@ -140,7 +144,8 @@ describe("parseSwimPayload", () => {
     expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
     expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
-    expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
+    expect(result.gasKickstartEnabled).toBe(swimPayload.gasKickstartEnabled);
+    expect(result.maxSwimUSDFee).toBe(swimPayload.maxSwimUSDFee);
     expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
     expect(result.memoId).toBe(swimPayload.memoId.toString("hex"));
   });
@@ -152,6 +157,7 @@ describe("parseSwimPayload", () => {
       targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
+      maxSwimUSDFee: 1000n,
       swimTokenNumber: 1
     };
   
@@ -160,6 +166,7 @@ describe("parseSwimPayload", () => {
       convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
+      swimPayload.maxSwimUSDFee,
       swimPayload.swimTokenNumber,
       null
     );
@@ -169,6 +176,7 @@ describe("parseSwimPayload", () => {
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
     expect(result.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(result.gasKickstartEnabled).toBe(result.gasKickstartEnabled);
+    expect(result.maxSwimUSDFee).toBe(swimPayload.maxSwimUSDFee);
     expect(result.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
     expect(result.memoId).toBe(toBigNumberHex(BigNumber.from(0), 16));
   });
@@ -186,6 +194,7 @@ describe("parseSwimPayload", () => {
       null,
       null,
       null,
+      null,
       null
     );
   
@@ -194,6 +203,7 @@ describe("parseSwimPayload", () => {
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
     expect(result.propellerEnabled).toBe(false);
     expect(result.gasKickstartEnabled).toBe(false);
+    expect(result.maxSwimUSDFee).toBe(BigInt(0));
     expect(result.swimTokenNumber).toBe(0);
     expect(result.memoId).toBe(toBigNumberHex(BigNumber.from(0), 16));
   });
@@ -209,6 +219,7 @@ describe("parseSwimPayload", () => {
     const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
+      null,
       null,
       null,
       null,

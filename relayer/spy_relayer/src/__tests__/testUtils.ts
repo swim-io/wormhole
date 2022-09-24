@@ -81,19 +81,21 @@ export function encodeSwimPayload(
   targetChainRecipient: Buffer,
   propellerEnabled: boolean | null,
   gasKickstartEnabled: boolean | null,
+  maxSwimUSDFee: bigint | null,
   swimTokenNumber: number | null,
   memoId: Buffer | null
 ) {
-  const encoded = Buffer.alloc(53);
+  const encoded = Buffer.alloc(61);
   encoded.writeUInt8(swimMessageVersion, 0);
   encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
   encoded.writeUInt8(propellerEnabled ? 1 : 0, 33);
   encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
+  if (maxSwimUSDFee)
+    encoded.writeBigUInt64BE(maxSwimUSDFee, 35);
   if (swimTokenNumber) 
-    encoded.writeUInt16BE(swimTokenNumber, 35);
+    encoded.writeUInt16BE(swimTokenNumber, 43);
   if (memoId) 
-    encoded.write(memoId.toString("hex"), 37, "hex");
-    //encoded.write(toBigNumberHex(memoId, 16), 37, "hex");
+    encoded.write(memoId.toString("hex"), 45, "hex");
   return encoded;
 }
 
@@ -106,7 +108,7 @@ export function encodeTransferWithPoolPayload(
   senderAddress: Buffer,
   swimPayload: Buffer
 ) {
-  const encoded = Buffer.alloc(133 + 53); // TODO change this size once swim payload finalized
+  const encoded = Buffer.alloc(133 + 61); // TODO change this size once swim payload finalized
   encoded.writeUInt8(3, 0); // this will always be payload type 3
   encoded.write(toBigNumberHex(amount, 32), 1, "hex");
   encoded.write(originAddress.toString("hex"), 33, "hex");

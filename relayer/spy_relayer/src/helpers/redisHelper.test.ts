@@ -69,6 +69,7 @@ const parsedSwimData = {
   targetChainRecipient: targetChainRecipientStr, 
   propellerEnabled: true,
   gasKickstartEnabled: true,
+  maxSwimUSDFee: 1000n,
   swimTokenNumber: 2,
   memoId: memoId
 }
@@ -78,6 +79,7 @@ const encodedSwim = encodeSwimPayload(
   convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
   parsedSwimData.propellerEnabled,
   parsedSwimData.gasKickstartEnabled,
+  parsedSwimData.maxSwimUSDFee,
   parsedSwimData.swimTokenNumber,
   parsedSwimData.memoId,
 );
