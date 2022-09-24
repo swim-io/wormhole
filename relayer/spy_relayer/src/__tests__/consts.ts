@@ -38,7 +38,12 @@ export const TEST_ERC20 = "0x2D8BE6BF0baA74e0A907016679CaE9190e80dD0A";
 export const TEST_SOLANA_TOKEN = "2WDq7wSs9zYrpx2kbHDA4RUTRch2CCTP6ZWaH4GNfnQQ";
 export const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
 
+export const TEST_APPROVED_ETH_TOKEN = "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
+
 export const SPY_RELAY_URL = "http://localhost:4201";
+
+// Fake address, matches SWIM_EVM_ROUTING_ADDRESS in .env.sample
+export const TEST_SWIM_EVM_ROUTING_ADDRESS = "0x0290FB167208Af455bB137780163b7B7a9a10C16";
 
 describe("consts should exist", () => {
   it("has Solana test token", () => {

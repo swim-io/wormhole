@@ -1,5 +1,8 @@
-import { ChainId } from "@certusone/wormhole-sdk";
+import {
+  ChainId,
+} from "@certusone/wormhole-sdk";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+
 
 //TODO move these to the official SDK
 export async function parseVaaTyped(signedVAA: Uint8Array) {
@@ -47,3 +50,21 @@ function IsParsedTransferPayload(
     typeof (payload as ParsedTransferPayload).targetChain == "number"
   );
 }
+export type ParsedTransferWithArbDataPayload<T> = {
+  amount: BigInt;
+  originAddress: string; //hex
+  originChain: ChainId;
+  targetAddress: string; //hex
+  targetChain: ChainId;
+  senderAddress: string; //hex
+  extraPayload: T;
+};
+
+export type ParsedSwimData = {
+  swimMessageVersion: number;
+  targetChainRecipient: string; //hex
+  propellerEnabled: boolean;
+  gasKickstartEnabled: boolean;
+  swimTokenNumber: number;
+  memoId: string; //hex
+};

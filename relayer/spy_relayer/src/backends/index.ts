@@ -1,4 +1,4 @@
-import defaultBackend from "./default";
+import defaultBackend from "./swim";
 import { Backend } from "./definitions";
 
 let backend: Backend;

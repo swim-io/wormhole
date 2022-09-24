@@ -23,10 +23,9 @@ ARG BRIDGE_ADDRESS
 RUN [ -n "${BRIDGE_ADDRESS}" ]
 
 # Copy Swim pool contract
-COPY modules/1pool.so /opt/solana/deps/1pool.so
-COPY modules/2pool.so /opt/solana/deps/2pool.so
-COPY modules/4pool.so /opt/solana/deps/4pool.so
-COPY modules/6pool.so /opt/solana/deps/6pool.so
+COPY modules/one_pool.so /opt/solana/deps/one_pool.so
+COPY modules/two_pool.so /opt/solana/deps/two_pool.so
+COPY modules/six_pool.so /opt/solana/deps/six_pool.so
 
 # Build Wormhole Solana programs
 RUN --mount=type=cache,target=target,id=build \
