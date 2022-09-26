@@ -101,7 +101,7 @@ export async function relayEVM(
   // TODO fill out memo
   const tx = await routing_contract.propellerComplete(
     signedVaaArray,
-    //overrides
+    overrides
   );
 
   logger.info("waiting for tx hash: %s", tx.hash);
