@@ -315,10 +315,11 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   // The env variable is in ETH units for ease of use, but evmClaimFeeThreshold is in wei
   if(!process.env.SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD) {
     logger.warn("SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD was not provided, setting a default of 2 eth");
-    evmClaimFeeThreshold = ethers.BigNumber.from(2 * 10^18);
+    evmClaimFeeThreshold = ethers.BigNumber.from(10).pow(18).mul(2);
   } else {
     const envThreshold = Number(process.env.SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD);
-    evmClaimFeeThreshold = ethers.BigNumber.from(envThreshold * 10^18)
+    logger.info("setting SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD as " + envThreshold + " eth");
+    evmClaimFeeThreshold = ethers.BigNumber.from(10).pow(18).mul(envThreshold);
 
   }
   logger.info("Setting the relayer backend...");

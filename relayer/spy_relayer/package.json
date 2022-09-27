@@ -22,7 +22,8 @@
     "checkBalance": "node lib/scratch/checkBalance.js",
     "translateAddress": "node lib/scratch/translateAddress.js",
     "decodeSwimPayload": "node lib/scratch/decodeSwimPayload.js",
-    "subscribe": "node lib/scratch/subscribe.js"
+    "subscribe": "node lib/scratch/subscribe.js",
+    "playground": "node lib/scratch/playground.js"
   },
   "author": "",
   "license": "Apache-2.0",
