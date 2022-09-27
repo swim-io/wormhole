@@ -172,6 +172,7 @@ async function pullEVMNativeBalance(
   const addr: string = await signer.getAddress();
   let weiAmount = await provider.getBalance(addr);
   let balanceInEth = ethers.utils.formatEther(weiAmount);
+  logger.debug("balances for chain Id " + chainInfo.chainId);
   logger.debug("weiAmount " + weiAmount.toString());
   logger.debug("balanceInEth " + balanceInEth);
   logger.debug("evmClaimFeeThreshold " + env.evmClaimFeeThreshold.toString());
@@ -181,6 +182,7 @@ async function pullEVMNativeBalance(
     await claimEvmFees(signer, env.swimEvmContractAddress);
     weiAmount = await provider.getBalance(addr);
     balanceInEth = ethers.utils.formatEther(weiAmount);
+    logger.debug("balances for chain Id " + chainInfo.chainId);
     logger.debug("weiAmount after " + weiAmount.toString());
     logger.debug("balanceInEth after " + balanceInEth);
   }
