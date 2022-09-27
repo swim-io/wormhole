@@ -2,17 +2,13 @@ import {
   Bridge__factory,
   ChainId,
   CHAIN_ID_SOLANA,
-  getForeignAssetTerra,
   hexToUint8Array,
   isEVMChain,
-  isTerraChain,
   nativeToHexString,
-  TerraChainId,
   WSOL_DECIMALS,
 } from "@certusone/wormhole-sdk";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, Keypair } from "@solana/web3.js";
-import { LCDClient, MnemonicKey } from "@terra-money/terra.js";
 import { ethers, Signer } from "ethers";
 import { formatUnits } from "ethers/lib/utils";
 import {
@@ -26,8 +22,8 @@ import { PromHelper } from "../helpers/promHelpers";
 import { getMetaplexData, sleep } from "../helpers/utils";
 import { getEthereumToken } from "../utils/ethereum";
 import { getMultipleAccountsRPC } from "../utils/solana";
-import { formatNativeDenom } from "../utils/terra";
 import { newProvider } from "../relayer/evm";
+import { Routing__factory } from "@swim-io/evm-contracts";
 
 let env: RelayerEnvironment;
 const logger = getScopedLogger(["walletMonitor"]);
@@ -90,10 +86,6 @@ async function pullBalances(metrics: PromHelper): Promise<WalletBalance[]> {
         // TODO one day this will spin up independent watchers that time themselves
         // purposefully not awaited
         pullAllEVMTokens(env.supportedTokens, chainInfo, metrics);
-      } else if (isTerraChain(chainInfo.chainId)) {
-        // TODO one day this will spin up independent watchers that time themselves
-        // purposefully not awaited
-        pullAllTerraBalances(env.supportedTokens, chainInfo, metrics);
       } else {
         logger.error("Invalid chain ID in wallet monitor " + chainInfo.chainId);
       }
@@ -114,43 +106,6 @@ async function pullBalances(metrics: PromHelper): Promise<WalletBalance[]> {
   );
 
   return balances;
-}
-
-export async function pullTerraBalance(
-  lcd: LCDClient,
-  walletAddress: string,
-  tokenAddress: string,
-  chainId: TerraChainId
-): Promise<WalletBalance | undefined> {
-  try {
-    const tokenInfo: any = await lcd.wasm.contractQuery(tokenAddress, {
-      token_info: {},
-    });
-    const balanceInfo: any = await lcd.wasm.contractQuery(tokenAddress, {
-      balance: {
-        address: walletAddress,
-      },
-    });
-
-    if (!tokenInfo || !balanceInfo) {
-      return undefined;
-    }
-
-    return {
-      chainId,
-      balanceAbs: balanceInfo?.balance?.toString() || "0",
-      balanceFormatted: formatUnits(
-        balanceInfo?.balance?.toString() || "0",
-        tokenInfo.decimals
-      ),
-      currencyName: tokenInfo.symbol,
-      currencyAddressNative: tokenAddress,
-      isNative: false,
-      walletAddress: walletAddress,
-    };
-  } catch (e) {
-    logger.error("Failed to fetch terra balance for %s", tokenAddress);
-  }
 }
 
 async function pullSolanaTokenBalances(
@@ -206,6 +161,7 @@ async function pullEVMNativeBalance(
   chainInfo: ChainConfigInfo,
   privateKey: string
 ): Promise<WalletBalance[]> {
+  const env = getRelayerEnvironment();
   if (!privateKey || !chainInfo.nodeUrl) {
     throw new Error("Bad chainInfo config for EVM chain: " + chainInfo.chainId);
   }
@@ -214,8 +170,22 @@ async function pullEVMNativeBalance(
   if (!provider) throw new Error("bad provider");
   const signer: Signer = new ethers.Wallet(privateKey, provider);
   const addr: string = await signer.getAddress();
-  const weiAmount = await provider.getBalance(addr);
-  const balanceInEth = ethers.utils.formatEther(weiAmount);
+  let weiAmount = await provider.getBalance(addr);
+  let balanceInEth = ethers.utils.formatEther(weiAmount);
+  logger.debug("balances for chain Id " + chainInfo.chainId);
+  logger.debug("weiAmount " + weiAmount.toString());
+  logger.debug("balanceInEth " + balanceInEth);
+  logger.debug("evmClaimFeeThreshold " + env.evmClaimFeeThreshold.toString());
+
+  if (weiAmount.lte(env.evmClaimFeeThreshold)) {
+    logger.debug("weiAmount is less than threshold, claiming fees from routing contract");
+    await claimEvmFees(signer, env.swimEvmContractAddress);
+    weiAmount = await provider.getBalance(addr);
+    balanceInEth = ethers.utils.formatEther(weiAmount);
+    logger.debug("balances for chain Id " + chainInfo.chainId);
+    logger.debug("weiAmount after " + weiAmount.toString());
+    logger.debug("balanceInEth after " + balanceInEth);
+  }
 
   return [
     {
@@ -230,39 +200,19 @@ async function pullEVMNativeBalance(
   ];
 }
 
-async function pullTerraNativeBalance(
-  lcd: LCDClient,
-  chainInfo: ChainConfigInfo,
-  walletAddress: string
-): Promise<WalletBalance[]> {
-  try {
-    const output: WalletBalance[] = [];
-    const [coins] = await lcd.bank.balance(walletAddress);
-    // coins doesn't support reduce
-    const balancePairs = coins.map(({ amount, denom }) => [denom, amount]);
-    const balance = balancePairs.reduce((obj, current) => {
-      obj[current[0].toString()] = current[1].toString();
-      return obj;
-    }, {} as TerraNativeBalances);
-    Object.keys(balance).forEach((key) => {
-      output.push({
-        chainId: chainInfo.chainId,
-        balanceAbs: balance[key],
-        balanceFormatted: formatUnits(balance[key], 6).toString(),
-        currencyName: formatNativeDenom(key, chainInfo.chainId as TerraChainId),
-        currencyAddressNative: key,
-        isNative: true,
-        walletAddress: walletAddress,
-      });
-    });
-    return output;
-  } catch (e) {
-    logger.error(
-      "Failed to fetch terra native balances for wallet %s",
-      walletAddress
-    );
-    return [];
-  }
+async function claimEvmFees(
+  signer: Signer,
+  swimEvmContractAddress: string,
+) {
+  const routing_contract = Routing__factory.connect(
+    swimEvmContractAddress,
+    signer
+  );
+
+  const tx = await routing_contract.claimFees();
+  logger.debug("waiting for claimFee tx hash %s", tx.hash);
+  const receipt = await tx.wait();
+  logger.debug("successful claimFees, tx hash: %s", receipt.transactionHash);
 }
 
 async function pullSolanaNativeBalance(
@@ -368,49 +318,6 @@ async function calcLocalAddressesEVM(
   );
 }
 
-export async function calcLocalAddressesTerra(
-  lcd: LCDClient,
-  supportedTokens: SupportedToken[],
-  chainConfigInfo: ChainConfigInfo
-) {
-  const output: string[] = [];
-  for (const supportedToken of supportedTokens) {
-    if (supportedToken.chainId === chainConfigInfo.chainId) {
-      // skip natives, like uluna and uusd
-      if (supportedToken.address.startsWith("terra")) {
-        output.push(supportedToken.address);
-      }
-      continue;
-    }
-    const hexAddress = nativeToHexString(
-      supportedToken.address,
-      supportedToken.chainId
-    );
-    if (!hexAddress) {
-      continue;
-    }
-    //This returns a native address
-    let foreignAddress;
-    try {
-      foreignAddress = await getForeignAssetTerra(
-        chainConfigInfo.tokenBridgeAddress,
-        lcd,
-        supportedToken.chainId,
-        hexToUint8Array(hexAddress)
-      );
-    } catch (e) {
-      logger.error("Foreign address exception.");
-    }
-
-    if (!foreignAddress) {
-      continue;
-    }
-    output.push(foreignAddress);
-  }
-
-  return output;
-}
-
 async function pullAllEVMTokens(
   supportedTokens: SupportedToken[],
   chainConfig: ChainConfigInfo,
@@ -475,62 +382,4 @@ async function pullAllEVMTokens(
         e
     );
   }
-}
-
-async function pullAllTerraBalances(
-  supportedTokens: SupportedToken[],
-  chainConfig: ChainConfigInfo,
-  metrics: PromHelper
-) {
-  let balances: WalletBalance[] = [];
-  if (!chainConfig.walletPrivateKey) {
-    return balances;
-  }
-  if (
-    !(
-      chainConfig.terraChainId &&
-      chainConfig.terraCoin &&
-      chainConfig.terraGasPriceUrl &&
-      chainConfig.terraName
-    )
-  ) {
-    logger.error("Terra relay was called without proper instantiation.");
-    throw new Error("Terra relay was called without proper instantiation.");
-  }
-  const lcdConfig = {
-    URL: chainConfig.nodeUrl,
-    chainID: chainConfig.terraChainId,
-    name: chainConfig.terraName,
-    isClassic: chainConfig.isTerraClassic,
-  };
-  const lcd = new LCDClient(lcdConfig);
-  const localAddresses = await calcLocalAddressesTerra(
-    lcd,
-    supportedTokens,
-    chainConfig
-  );
-  for (const privateKey of chainConfig.walletPrivateKey) {
-    const mk = new MnemonicKey({
-      mnemonic: privateKey,
-    });
-    const wallet = lcd.wallet(mk);
-    const walletAddress = wallet.key.accAddress;
-    balances = [
-      ...balances,
-      ...(await pullTerraNativeBalance(lcd, chainConfig, walletAddress)),
-    ];
-    for (const address of localAddresses) {
-      const balance = await pullTerraBalance(
-        lcd,
-        walletAddress,
-        address,
-        chainConfig.chainId as TerraChainId
-      );
-      if (balance) {
-        balances.push(balance);
-      }
-    }
-  }
-
-  metrics.handleWalletBalances(balances);
 }

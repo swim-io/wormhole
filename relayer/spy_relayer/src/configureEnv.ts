@@ -5,6 +5,7 @@ import {
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { getLogger } from "./helpers/logHelper";
+import { ethers } from "ethers";
 
 export type SupportedToken = {
   chainId: ChainId;
@@ -87,6 +88,7 @@ export type RelayerEnvironment = {
   demoteWorkingOnInit: boolean;
   supportedTokens: { chainId: ChainId; address: string }[];
   swimEvmContractAddress: string;
+  evmClaimFeeThreshold: ethers.BigNumber; //units are wei
 };
 
 export type ChainConfigInfo = {
@@ -244,6 +246,7 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
   const logger = getLogger();
   let swimEvmContractAddress: string;
+  let evmClaimFeeThreshold: ethers.BigNumber;
 
   if (!process.env.REDIS_HOST) {
     throw new Error("Missing required environment variable: REDIS_HOST");
@@ -308,6 +311,17 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
   }
   swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
+
+  // The env variable is in ETH units for ease of use, but evmClaimFeeThreshold is in wei
+  if(!process.env.SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD) {
+    logger.warn("SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD was not provided, setting a default of 2 eth");
+    evmClaimFeeThreshold = ethers.BigNumber.from(10).pow(18).mul(2);
+  } else {
+    const envThreshold = Number(process.env.SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD);
+    logger.info("setting SWIM_EVM_CLAIM_FEE_ETH_THRESHOLD as " + envThreshold + " eth");
+    evmClaimFeeThreshold = ethers.BigNumber.from(10).pow(18).mul(envThreshold);
+
+  }
   logger.info("Setting the relayer backend...");
 
   return {
@@ -317,7 +331,8 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     clearRedisOnInit,
     demoteWorkingOnInit,
     supportedTokens,
-    swimEvmContractAddress
+    swimEvmContractAddress,
+    evmClaimFeeThreshold
   };
 };
 
