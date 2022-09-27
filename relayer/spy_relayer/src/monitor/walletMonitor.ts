@@ -176,7 +176,7 @@ async function pullEVMNativeBalance(
   logger.debug("balanceInEth " + balanceInEth);
   logger.debug("evmClaimFeeThreshold " + env.evmClaimFeeThreshold.toString());
 
-  if (weiAmount < env.evmClaimFeeThreshold) {
+  if (weiAmount.lte(env.evmClaimFeeThreshold)) {
     logger.debug("weiAmount is less than threshold, claiming fees from routing contract");
     await claimEvmFees(signer, env.swimEvmContractAddress);
     weiAmount = await provider.getBalance(addr);
