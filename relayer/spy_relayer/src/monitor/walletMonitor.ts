@@ -172,11 +172,12 @@ async function pullEVMNativeBalance(
   const addr: string = await signer.getAddress();
   let weiAmount = await provider.getBalance(addr);
   let balanceInEth = ethers.utils.formatEther(weiAmount);
+  logger.debug("weiAmount " + weiAmount.toString());
+  logger.debug("balanceInEth " + balanceInEth);
+  logger.debug("evmClaimFeeThreshold " + env.evmClaimFeeThreshold.toString());
 
   if (weiAmount < env.evmClaimFeeThreshold) {
     logger.debug("weiAmount is less than threshold, claiming fees from routing contract");
-    logger.debug("weiAmount before " + weiAmount.toString());
-    logger.debug("balanceInEth before " + balanceInEth);
     await claimEvmFees(signer, env.swimEvmContractAddress);
     weiAmount = await provider.getBalance(addr);
     balanceInEth = ethers.utils.formatEther(weiAmount);
