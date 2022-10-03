@@ -3,6 +3,10 @@ import {
 } from "@certusone/wormhole-sdk";
 import { BigNumber } from "@ethersproject/bignumber";
 
+const SWIM_PAYLOAD_VERSIONS = [
+  1
+]
+
 /*
     Similar to parseVaa.ts
     Everything is offset by 1, because first byte is the payload type (1, 2, 3)
@@ -31,6 +35,7 @@ export const parseTransferWithArbPayload = (arr: Buffer) => ({
     32 bytes - logical owner/recipient (will use ATA of owner and token on Solana)
      1 byte  - propeller enabled bool
      1 byte  - gas kickstart requested bool
+     8 bytes - max swim USD fee
      2 bytes - swimTokenNumber (support up to 65k different tokens, just to be safe)
     16 bytes - memo/interactionId
 */
@@ -46,14 +51,11 @@ export const parseSwimPayload = (arr: Buffer) => {
 
   const propellerEnabled = arr.readUInt8(33) == 1 ? true : false;
   const gasKickstartEnabled = arr.readUInt8(34) == 1 ? true : false;
-  const swimTokenNumber = arr.readUInt16BE(35);
-  if (arr.length == 37)
-    return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, swimTokenNumber};
+  const maxSwimUSDFee = arr.readBigUInt64BE(35);
+  const swimTokenNumber = arr.readUInt16BE(43);
+  if (arr.length == 45)
+    return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, maxSwimUSDFee, swimTokenNumber};
 
-  const memoId = arr.slice(37, 37 + 16).toString("hex");
-  return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, swimTokenNumber, memoId};
+  const memoId = arr.slice(45, 45 + 16).toString("hex");
+  return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, maxSwimUSDFee, swimTokenNumber, memoId};
 };
-
-const SWIM_PAYLOAD_VERSIONS = [
-  1
-]
