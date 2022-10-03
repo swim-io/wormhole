@@ -106,9 +106,9 @@ const encodedTransferWithPool = encodeTransferWithPoolPayload(
 
 const parsedVAA = {
   timestamp: 16,
-  nonce: 32,convertAddressToUint8Array
+  nonce: 32,
   emitterChain: CHAIN_ID_ETH,
-  emitterAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
+  emitterAddress: convertAddressToUint8Array(emitterAddressStr, CHAIN_ID_ETH),
   sequence: 1,
   consistencyLevel: 1,
   payload: parsedTransferWithPoolPayload

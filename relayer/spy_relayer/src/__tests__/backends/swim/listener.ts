@@ -29,9 +29,8 @@ import {
   encodeSwimPayload,
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
-  convertAddressToUint8,
-  convertUint8ToAddress,
-  toBigNumberHex
+  convertAddressToUint8Array,
+  convertUint8ToAddress
 } from "../../testUtils";
 import { BigNumber } from "@ethersproject/bignumber";
 
@@ -50,9 +49,10 @@ describe("validate", () => {
 
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetChainRecipientStr, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
+      maxSwimUSDFee: 1000n,
       swimTokenNumber: 1,
       memoId: memoId
     };
@@ -62,17 +62,18 @@ describe("validate", () => {
       convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
+      swimPayload.maxSwimUSDFee,
       swimPayload.swimTokenNumber,
       swimPayload.memoId
     );
 
     const transferWithPoolPayload = {
       amount: BigNumber.from(20),
-      originAddress: convertAddressToUint8(originAddress, CHAIN_ID_ETH),
+      originAddress: convertAddressToUint8Array(originAddress, CHAIN_ID_ETH),
       originChain: CHAIN_ID_ETH,
-      targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      targetAddress: convertAddressToUint8Array(targetChainRecipientStr, CHAIN_ID_SOLANA),
       targetChain: CHAIN_ID_SOLANA,
-      senderAddress: convertAddressToUint8(TEST_SWIM_EVM_ROUTING_ADDRESS, CHAIN_ID_ETH),
+      senderAddress: convertAddressToUint8Array(TEST_SWIM_EVM_ROUTING_ADDRESS, CHAIN_ID_ETH),
       extraPayload: encodedSwim
     };
 
@@ -109,7 +110,7 @@ describe("validate", () => {
     expect(convertUint8ToAddress(result.emitterAddress, CHAIN_ID_ETH)).toBe(originAddress);
     expect(result.sequence).toBe(1);
 
-    // Verify payload fields 
+    // Verify payload fields
     const payload3 = result.payload;
     expect(payload3.amount).toBe(transferWithPoolPayload.amount.toBigInt());
     expect(payload3.originAddress).toBe(tryNativeToHexString(originAddress, CHAIN_ID_ETH));
@@ -137,9 +138,10 @@ describe("validate", () => {
 
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetChainRecipientStr, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
+      maxSwimUSDFee: 1000n,
       swimTokenNumber: 1,
       memoId: memoId
     };
@@ -149,15 +151,16 @@ describe("validate", () => {
       convertAddressToHexBuffer(targetChainRecipientStr, CHAIN_ID_SOLANA),
       swimPayload.propellerEnabled,
       swimPayload.gasKickstartEnabled,
+      swimPayload.maxSwimUSDFee,
       swimPayload.swimTokenNumber,
       swimPayload.memoId,
     );
 
     const transferWithPoolPayload = {
       amount: BigNumber.from(20),
-      originAddress: convertAddressToUint8(originAddress, CHAIN_ID_ETH),
+      originAddress: convertAddressToUint8Array(originAddress, CHAIN_ID_ETH),
       originChain: CHAIN_ID_ETH,
-      targetAddress: convertAddressToUint8(targetChainRecipientStr, CHAIN_ID_SOLANA),
+      targetAddress: convertAddressToUint8Array(targetChainRecipientStr, CHAIN_ID_SOLANA),
       targetChain: CHAIN_ID_SOLANA,
       senderAddress: "0x1111111111111111111111111111111111111111",
       extraPayload: encodedSwim
