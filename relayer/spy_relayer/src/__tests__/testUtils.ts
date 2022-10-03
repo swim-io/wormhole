@@ -92,9 +92,9 @@ export function encodeSwimPayload(
   encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
   if (maxSwimUSDFee)
     encoded.writeBigUInt64BE(maxSwimUSDFee, 35);
-  if (swimTokenNumber) 
+  if (swimTokenNumber)
     encoded.writeUInt16BE(swimTokenNumber, 43);
-  if (memoId) 
+  if (memoId)
     encoded.write(memoId.toString("hex"), 45, "hex");
   return encoded;
 }
@@ -124,7 +124,7 @@ export function convertAddressToHexBuffer(address: string, chain_id: ChainId): B
   return Buffer.from(tryNativeToHexString(address, chain_id), "hex");
 }
 
-export function convertAddressToUint8(address: string, chain_id: ChainId): Uint8Array {
+export function convertAddressToUint8Array(address: string, chain_id: ChainId): Uint8Array {
   return Uint8Array.from(convertAddressToHexBuffer(address, chain_id));
 }
 

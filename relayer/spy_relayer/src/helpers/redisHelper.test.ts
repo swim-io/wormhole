@@ -32,7 +32,7 @@ import {
   encodeSwimPayload,
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
-  convertAddressToUint8,
+  convertAddressToUint8Array,
 } from "../__tests__/testUtils";
 
 
@@ -66,7 +66,7 @@ memoId.writeUInt8(2, 0);
 
 const parsedSwimData = {
   swimMessageVersion: 1,
-  targetChainRecipient: targetChainRecipientStr, 
+  targetChainRecipient: targetChainRecipientStr,
   propellerEnabled: true,
   gasKickstartEnabled: true,
   maxSwimUSDFee: 1000n,
@@ -106,7 +106,7 @@ const encodedTransferWithPool = encodeTransferWithPoolPayload(
 
 const parsedVAA = {
   timestamp: 16,
-  nonce: 32,
+  nonce: 32,convertAddressToUint8Array
   emitterChain: CHAIN_ID_ETH,
   emitterAddress: convertAddressToUint8(emitterAddressStr, CHAIN_ID_ETH),
   sequence: 1,

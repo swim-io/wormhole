@@ -18,7 +18,7 @@ import {
   encodeSwimPayload,
   encodeTransferWithPoolPayload,
   convertAddressToHexBuffer,
-  convertAddressToUint8,
+  convertAddressToUint8Array,
   toBigNumberHex,
 } from "../testUtils"
 
@@ -60,12 +60,12 @@ test("parseTransferWithPoolPayload", () => {
 
   const swimPayload = {
     swimMessageVersion: 1,
-    targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+    targetChainRecipient: convertAddressToUint8Array(targetAddress, CHAIN_ID_SOLANA),
     propellerEnabled: true,
     gasKickstartEnabled: true,
     maxSwimUSDFee: 1000n,
     swimTokenNumber: 1,
-    memoId: Buffer.from("33", "hex")  
+    memoId: Buffer.from("33", "hex")
   };
 
   const encodedSwim = encodeSwimPayload(
@@ -122,7 +122,7 @@ describe("parseSwimPayload", () => {
 
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetAddress, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
       maxSwimUSDFee: 1000n,
@@ -154,13 +154,13 @@ describe("parseSwimPayload", () => {
     const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetAddress, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
       maxSwimUSDFee: 1000n,
       swimTokenNumber: 1
     };
-  
+
     const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
@@ -170,7 +170,7 @@ describe("parseSwimPayload", () => {
       swimPayload.swimTokenNumber,
       null
     );
-  
+
     const result = parseSwimPayload(encodedSwim);
     expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
@@ -185,9 +185,9 @@ describe("parseSwimPayload", () => {
     const targetAddress = SOLANA_TOKEN_BRIDGE_ADDRESS;
     const swimPayload = {
       swimMessageVersion: 1,
-      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetAddress, CHAIN_ID_SOLANA),
     };
-  
+
     const encodedSwim = encodeSwimPayload(
       swimPayload.swimMessageVersion,
       convertAddressToHexBuffer(targetAddress, CHAIN_ID_SOLANA),
@@ -197,7 +197,7 @@ describe("parseSwimPayload", () => {
       null,
       null
     );
-  
+
     const result = parseSwimPayload(encodedSwim);
     expect(result.swimMessageVersion).toBe(swimPayload.swimMessageVersion);
     expect(tryHexToNativeString(result.targetChainRecipient, CHAIN_ID_SOLANA)).toBe(targetAddress);
@@ -213,7 +213,7 @@ describe("parseSwimPayload", () => {
     const invalidSwimVersion = 255;
     const swimPayload = {
       swimMessageVersion: invalidSwimVersion,
-      targetChainRecipient: convertAddressToUint8(targetAddress, CHAIN_ID_SOLANA),
+      targetChainRecipient: convertAddressToUint8Array(targetAddress, CHAIN_ID_SOLANA),
     };
 
     const encodedSwim = encodeSwimPayload(
@@ -225,7 +225,7 @@ describe("parseSwimPayload", () => {
       null,
       null
     );
-  
+
     expect(() => parseSwimPayload(encodedSwim)).toThrow(Error("swim payload had an unsupported message version " + invalidSwimVersion));
   });
 })
