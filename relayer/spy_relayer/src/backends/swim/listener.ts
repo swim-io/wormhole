@@ -67,13 +67,13 @@ export class SwimListener implements Listener {
     return true;
   }
 
-  /** Verify that we are only getting messages from one sepcific swim EVM routing contract address */
-  verifyFromSwimEvmContract(parsedVaaPayload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
+  /** Verify that we are only getting messages to one specific swim EVM routing contract address */
+  verifyToSwimEvmContract(parsedVaaPayload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
     let env = getListenerEnvironment();
     const expectedSwimEvmContractAddress = tryNativeToHexString(
       env.swimEvmContractAddress, CHAIN_ID_ETH
     );
-    if (parsedVaaPayload.senderAddress != expectedSwimEvmContractAddress) {
+    if (parsedVaaPayload.targetAddress != expectedSwimEvmContractAddress) {
       return false;
     } else {
       return true;
@@ -108,6 +108,10 @@ export class SwimListener implements Listener {
     }
 
     return true;
+  }
+
+  verifyIsPropellerEnabled(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
+    return payload.extraPayload.propellerEnabled;
   }
 
   /** Parses a raw VAA byte array
@@ -168,7 +172,7 @@ export class SwimListener implements Listener {
     let parsedVaa = await this.parseVaa(rawVaa);
     let parsedPayload: ParsedTransferWithArbDataPayload<ParsedSwimData>;
 
-    // Verify this is actually a token bridge transfer with payload 
+    // Verify this is actually a token bridge transfer with payload
     if (!this.verifyIsPayloadV3(parsedVaa)) {
       return "Wrong payload type";
     }
@@ -182,7 +186,8 @@ export class SwimListener implements Listener {
     // Verify we want to relay this request
     if (
       !this.verifyIsApprovedToken(parsedPayload) ||
-      !this.verifyFromSwimEvmContract(parsedPayload)
+      !this.verifyToSwimEvmContract(parsedPayload) ||
+      !this.verifyIsPropellerEnabled
     ) {
       return "Validation failed";
     }

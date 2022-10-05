@@ -65,6 +65,7 @@ export type ParsedSwimData = {
   targetChainRecipient: string; //hex
   propellerEnabled: boolean;
   gasKickstartEnabled: boolean;
+  maxSwimUSDFee: BigInt;
   swimTokenNumber: number;
   memoId: string; //hex
 };
