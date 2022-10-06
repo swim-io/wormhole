@@ -6,7 +6,7 @@ be able to be used for other deployments as well.
 
 For testnet on a local machine, you'll need these things running:
 - A spy container reading from testnet wormhole guardians
-- A container running `npm run swim_spy_relay`. 
+- A container running `npm run swim_spy_relay`.
 - A container running redis
 
 ## Running redis:
@@ -44,7 +44,7 @@ Once inside the droplet, run these commands:
 $ cd wormhole/relayer/spy_relayer
 $ npm install
 $ npm run build
-$ cd ../.. 
+$ cd ../..
 $ tilt up
 ```
 This will use the config files located in `/swim_testnet`, as well as the config files `.env.testnet.relayer` and `.env.testnet.listener`
@@ -123,4 +123,4 @@ SPY_SERVICE_FILTERS=
 ```
 
 #### Footnotes
-Wormhole docs say to add wrapped asset addresses to SUPPORTED_TOKENS, link to those addresses here: https://github.com/certusone/wormhole/blob/dev.v2/bridge_ui/src/utils/consts.ts#L1030-L1044A
+Wormhole docs say to add wrapped asset addresses to SUPPORTED_TOKENS, link to those addresses here: https://github.com/wormhole-foundation/example-token-bridge-ui/blob/main/src/utils/consts.ts
