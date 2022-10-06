@@ -125,6 +125,7 @@ describe("validate", () => {
     expect(resultSwimPayload.targetChainRecipient).toBe(tryNativeToHexString(targetChainRecipientStr, CHAIN_ID_SOLANA));
     expect(resultSwimPayload.propellerEnabled).toBe(swimPayload.propellerEnabled);
     expect(resultSwimPayload.gasKickstartEnabled).toBe(swimPayload.gasKickstartEnabled);
+    expect(resultSwimPayload.maxSwimUSDFee).toBe(swimPayload.maxSwimUSDFee);
     expect(resultSwimPayload.swimTokenNumber).toBe(swimPayload.swimTokenNumber);
     expect(resultSwimPayload.memoId).toBe(swimPayload.memoId.toString("hex"))
   });
