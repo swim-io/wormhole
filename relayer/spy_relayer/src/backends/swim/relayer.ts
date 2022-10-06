@@ -21,6 +21,7 @@ import {
   storePayloadFromJson,
   storePayloadToJson,
   WorkerInfo,
+  addToRate
 } from "../../helpers/redisHelper";
 import { PromHelper } from "../../helpers/promHelpers";
 import { sleep } from "../../helpers/utils";
@@ -344,6 +345,13 @@ export class SwimRelayer implements Relayer {
         metrics,
         swimEvmContractAddress
       );
+
+      // add request to rate limit only if successful?
+      if (evmResult.redeemed) {
+        const parsedSwimPayload = parseSwimPayload(parsedVaaPayload.extraPayload);
+        const baseKey = parsedSwimPayload.targetChainRecipient;
+        addToRate(baseKey);
+      }
       return {
         status: evmResult.redeemed ? Status.Completed : Status.Error,
         result: evmResult.result.toString(),

@@ -118,6 +118,7 @@ export type ListenerEnvironment = {
   supportedTokens: { chainId: ChainId; address: string }[];
   swimEvmContractAddress: string;
   swimSolanaContractAddress: PublicKey;
+  requestLimit: number;
 };
 
 let listenerEnv: ListenerEnvironment | undefined = undefined;
@@ -140,6 +141,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
   let swimEvmContractAddress: string;
   let swimSolanaContractAddress: PublicKey;
+  let requestLimit: number = -1;
   const logger = getLogger();
 
   if (!process.env.SPY_SERVICE_HOST) {
@@ -223,6 +225,13 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   }
   swimSolanaContractAddress = new PublicKey(process.env.SWIM_SOLANA_ROUTING_ADDRESS);
 
+  logger.info("Getting XHACK_NUM_REQUEST_LIMIT...");
+  if(!process.env.XHACK_NUM_REQUEST_LIMIT) {
+    logger.warning("No rate limit set");
+  } else {
+    requestLimit = parseInt(process.env.XHACK_NUM_REQUEST_LIMIT);
+  }
+
   logger.info("Setting the listener backend...");
 
   return {
@@ -232,7 +241,8 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
     numSpyWorkers,
     supportedTokens,
     swimEvmContractAddress,
-    swimSolanaContractAddress
+    swimSolanaContractAddress,
+    requestLimit,
   };
 };
 

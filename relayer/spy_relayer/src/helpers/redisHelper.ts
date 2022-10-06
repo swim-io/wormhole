@@ -30,6 +30,7 @@ export function getBackupQueue() {
 export enum RedisTables {
   INCOMING = 0,
   WORKING = 1,
+  RATE_LIMIT_INFO = 2,
 }
 
 export function init(ph: PromHelper): boolean {
@@ -155,6 +156,87 @@ export async function addToRedis(
     );
   }
 }
+
+function getRateLimitKey(
+  baseKey: string
+) {
+  // each key is batched by 10 minutes
+  let date = new Date;
+  let minute = date.getMinutes();
+  let nearest10 = Math.floor(minute / 10) * 10;
+  return baseKey + ":" + nearest10;
+}
+
+export async function getCurrentRate(
+  baseKey: string
+): Promise<number> {
+  let currentNumRequests = -1;
+  await redisMutex.runExclusive(async () => {
+    let redisClient;
+    try {
+      redisClient = await connectToRedis();
+      if (!redisClient) {
+        logger.error("Failed to connect to redis in getCurrentRate()");
+        return;
+      }
+      await redisClient.select(RedisTables.RATE_LIMIT_INFO);
+
+      const key = getRateLimitKey(baseKey);
+      const valueFromRedis = await redisClient.get(key);
+      if (!valueFromRedis) {
+        return;
+      }
+      currentNumRequests = parseInt(valueFromRedis);
+    } catch (e) {
+      logger.error("Failed during getCurrentRate %o", e);
+    } finally {
+      try {
+        if (redisClient) {
+          await redisClient.quit();
+        }
+      } catch (e) {
+        logger.error("Failed to quit redis client");
+      }
+    }
+  });
+  return currentNumRequests;
+}
+
+export async function addToRate(
+  baseKey: string
+) {
+  await redisMutex.runExclusive(async () => {
+    let redisClient;
+    try {
+      redisClient = await connectToRedis();
+      if (!redisClient) {
+        logger.error(
+          "Failed to connect to redis, not logging rateLimit event"
+        );
+        return;
+      }
+      await redisClient.select(RedisTables.RATE_LIMIT_INFO);
+
+      const key = getRateLimitKey(baseKey);
+      logger.debug("incrementing rate for key: " + key);
+      await redisClient.multi()
+        .incr(key)
+        .expire(key, 599) // expire key in 10 minutes
+        .exec();
+    } catch (e) {
+      logger.error("Failed during addToRate %o", e);
+    }
+
+    try {
+      if (redisClient) {
+        await redisClient.quit();
+      }
+    } catch (e) {
+      logger.error("Failed to quit redis client");
+    }
+  });
+}
+
 
 export enum Status {
   Pending = 1,

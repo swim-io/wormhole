@@ -26,7 +26,6 @@ import {
   ETH_PUBLIC_KEY,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
 } from "../__tests__/consts";
-import { BigNumber } from "@ethersproject/bignumber";
 import {
   signAndEncodeVaa,
   encodeSwimPayload,
