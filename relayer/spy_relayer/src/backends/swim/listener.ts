@@ -190,7 +190,7 @@ export class SwimListener implements Listener {
       !this.verifyToSwimContracts(parsedPayload) ||
       !this.verifyIsPropellerEnabled
     ) {
-      return "Validation failed";
+      return "Validation failed for vaa sequence " + parsedVaa.sequence;
     }
 
     // Great success!
