@@ -184,11 +184,12 @@ export async function getCurrentRate(
       const key = getRateLimitKey(baseKey);
       const valueFromRedis = await redisClient.get(key);
       if (!valueFromRedis) {
-        logger.error("No value for key " + key);
-        return;
+        logger.debug("No current value, returning 0 for key " + key);
+        currentNumRequests = 0;
+      } else {
+        currentNumRequests = parseInt(valueFromRedis);
+        logger.debug("getCurrentRate, key is " + key + ", value is " + currentNumRequests);
       }
-      currentNumRequests = parseInt(valueFromRedis);
-      logger.debug("getCurrentRate, key is " + key + ", value is " + currentNumRequests);
     } catch (e) {
       logger.error("Failed during getCurrentRate %o", e);
     } finally {
