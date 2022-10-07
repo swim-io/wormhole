@@ -67,17 +67,18 @@ export class SwimListener implements Listener {
     return true;
   }
 
-  /** Verify that we are only getting messages to one specific swim EVM routing contract address */
-  verifyToSwimEvmContract(parsedVaaPayload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
+  /** Verify that we are only getting messages that are sending to our routing contract addresses */
+  verifyToSwimContracts(parsedVaaPayload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
     let env = getListenerEnvironment();
     const expectedSwimEvmContractAddress = tryNativeToHexString(
       env.swimEvmContractAddress, CHAIN_ID_ETH
     );
-    if (parsedVaaPayload.targetAddress != expectedSwimEvmContractAddress) {
-      return false;
-    } else {
-      return true;
-    }
+    const expectedSwimSolanaContractAddress = tryNativeToHexString(
+      env.swimSolanaContractAddress.toString(), CHAIN_ID_SOLANA
+    )
+    const isToEvm = parsedVaaPayload.targetAddress == expectedSwimEvmContractAddress;
+    const isToSolana = parsedVaaPayload.targetAddress == expectedSwimSolanaContractAddress;
+    return isToEvm || isToSolana;
   }
 
   /** Verify the the token in this payload in the approved token list. */
@@ -186,7 +187,7 @@ export class SwimListener implements Listener {
     // Verify we want to relay this request
     if (
       !this.verifyIsApprovedToken(parsedPayload) ||
-      !this.verifyToSwimEvmContract(parsedPayload) ||
+      !this.verifyToSwimContracts(parsedPayload) ||
       !this.verifyIsPropellerEnabled
     ) {
       return "Validation failed";

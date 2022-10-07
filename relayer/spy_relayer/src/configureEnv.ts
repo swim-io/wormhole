@@ -5,6 +5,7 @@ import {
   nativeToHexString,
 } from "@certusone/wormhole-sdk";
 import { getLogger } from "./helpers/logHelper";
+import { PublicKey } from "@solana/web3.js";
 
 export type SupportedToken = {
   chainId: ChainId;
@@ -87,6 +88,7 @@ export type RelayerEnvironment = {
   demoteWorkingOnInit: boolean;
   supportedTokens: { chainId: ChainId; address: string }[];
   swimEvmContractAddress: string;
+  swimSolanaContractAddress: PublicKey;
 };
 
 export type ChainConfigInfo = {
@@ -113,6 +115,7 @@ export type ListenerEnvironment = {
   numSpyWorkers: number;
   supportedTokens: { chainId: ChainId; address: string }[];
   swimEvmContractAddress: string;
+  swimSolanaContractAddress: PublicKey;
 };
 
 let listenerEnv: ListenerEnvironment | undefined = undefined;
@@ -134,6 +137,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   let numSpyWorkers: number;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
   let swimEvmContractAddress: string;
+  let swimSolanaContractAddress: PublicKey;
   const logger = getLogger();
 
   if (!process.env.SPY_SERVICE_HOST) {
@@ -211,6 +215,12 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
   }
   swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
 
+  logger.info("Getting SWIM_SOLANA_ROUTING_ADDRESS...");
+  if(!process.env.SWIM_SOLANA_ROUTING_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_SOLANA_ROUTING_ADDRESS") ;
+  }
+  swimSolanaContractAddress = new PublicKey(process.env.SWIM_SOLANA_ROUTING_ADDRESS);
+
   logger.info("Setting the listener backend...");
 
   return {
@@ -219,7 +229,8 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
     restPort,
     numSpyWorkers,
     supportedTokens,
-    swimEvmContractAddress
+    swimEvmContractAddress,
+    swimSolanaContractAddress
   };
 };
 
@@ -242,8 +253,9 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let clearRedisOnInit: boolean;
   let demoteWorkingOnInit: boolean;
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
-  const logger = getLogger();
   let swimEvmContractAddress: string;
+  let swimSolanaContractAddress: PublicKey;
+  const logger = getLogger();
 
   if (!process.env.REDIS_HOST) {
     throw new Error("Missing required environment variable: REDIS_HOST");
@@ -308,6 +320,12 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     throw new Error("Missing required environment variable: SWIM_EVM_ROUTING_ADDRESS") ;
   }
   swimEvmContractAddress = process.env.SWIM_EVM_ROUTING_ADDRESS;
+
+  if(!process.env.SWIM_SOLANA_ROUTING_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_SOLANA_ROUTING_ADDRESS") ;
+  }
+  swimSolanaContractAddress = new PublicKey(process.env.SWIM_SOLANA_ROUTING_ADDRESS);
+
   logger.info("Setting the relayer backend...");
 
   return {
@@ -317,7 +335,8 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     clearRedisOnInit,
     demoteWorkingOnInit,
     supportedTokens,
-    swimEvmContractAddress
+    swimEvmContractAddress,
+    swimSolanaContractAddress
   };
 };
 

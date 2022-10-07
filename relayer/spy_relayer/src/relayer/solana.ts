@@ -1,13 +1,14 @@
 import {
   CHAIN_ID_SOLANA,
+  CHAIN_ID_ETH,
+  CHAIN_ID_BSC,
   getForeignAssetSolana,
   getIsTransferCompletedSolana,
   hexToUint8Array,
   importCoreWasm,
-  parseTransferPayload,
   postVaaSolanaWithRetry,
-  redeemOnSolana,
   tryHexToNativeAssetString,
+  tryNativeToHexString,
 } from "@certusone/wormhole-sdk";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -19,8 +20,36 @@ import { ChainConfigInfo } from "../configureEnv";
 import { getScopedLogger, ScopedLogger } from "../helpers/logHelper";
 import { PromHelper } from "../helpers/promHelpers";
 import { parseTransferWithArbPayload } from "../utils/swim";
+import { getRelayerEnvironment } from "../configureEnv";
+import {
+  AnchorProvider,
+  Program,
+  Spl,
+  Wallet as AnchorWallet,
+} from "@project-serum/anchor";
+import { generatePropellerEngineTxns, getWormholeAddressesForMint } from "./solana_utils";
+import { idl } from "@swim-io/solana-contracts";
 
 const MAX_VAA_UPLOAD_RETRIES_SOLANA = 5;
+
+// TODO put this in env file?
+const twoPoolKey = new PublicKey("8VNVtWUae4qMe535i4yL1gD3VTo8JhcfFEygaozBq8aM");
+const swimUsdMint = new PublicKey("3ngTtoyP9GFybFifX1dr7gCFXFiM2Wr6NfXn6EuU7k6C");
+const DEFAULT_SOL_USD_FEED = new PublicKey("GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR"); // for aggregator
+
+const ethTokenBridgeStr = "0xF890982f9310df57d00f659cf4fd87e65adEd8d7";
+const ethTokenBridgeEthHexStr = tryNativeToHexString(
+  ethTokenBridgeStr,
+  CHAIN_ID_ETH,
+);
+export const ethTokenBridge = Buffer.from(ethTokenBridgeEthHexStr, "hex");
+
+const bscTokenBridgeStr = "0x0290FB167208Af455bB137780163b7B7a9a10C16";
+const bscTokenBridgeBscHexStr = tryNativeToHexString(
+  bscTokenBridgeStr,
+  CHAIN_ID_BSC,
+);
+export const bscTokenBridge = Buffer.from(bscTokenBridgeBscHexStr, "hex");
 
 export async function relaySolana(
   chainConfigInfo: ChainConfigInfo,
@@ -44,6 +73,27 @@ export async function relaySolana(
 
   const keypair = Keypair.fromSecretKey(walletPrivateKey);
   const payerAddress = keypair.publicKey.toString();
+  const anchorWallet = new AnchorWallet(keypair);
+  const solanaProvider = new AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
+  const env = getRelayerEnvironment();
+
+  const solanaRoutingContract = new Program(
+    idl.propeller,
+    env.swimSolanaContractAddress,
+    solanaProvider,
+  );
+
+  const twoPoolProgram = new Program(
+    idl.twoPool,
+    twoPoolKey,
+    solanaProvider
+  );
+
+  const propellerEngineAnchorProvider = new AnchorProvider(
+    solanaProvider.connection,
+    anchorWallet,
+    { commitment: "confirmed" },
+  );
 
   logger.info(
     "publicKey: %s, bridgeAddress: %s, tokenBridgeAddress: %s",
@@ -67,17 +117,19 @@ export async function relaySolana(
     return { redeemed: false, result: "not redeemed" };
   }
 
+  // start solana txn
+
   // determine fee destination address - an associated token account
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(signedVaaArray);
   const payloadBuffer = Buffer.from(parsedVAA.payload);
-  const transferPayload = parseTransferWithArbPayload(payloadBuffer);
+  const transferWithArbPayload = parseTransferWithArbPayload(payloadBuffer);
   logger.debug("Calculating the fee destination address");
   let nativeOrigin: string;
 
   try {
     nativeOrigin = tryHexToNativeAssetString(
-      transferPayload.originAddress,
+      transferWithArbPayload.originAddress,
       CHAIN_ID_SOLANA
     );
   } catch (e: any) {
@@ -87,17 +139,17 @@ export async function relaySolana(
   }
 
   const solanaMintAddress =
-    transferPayload.originChain === CHAIN_ID_SOLANA
+    transferWithArbPayload.originChain === CHAIN_ID_SOLANA
       ? nativeOrigin
       : await getForeignAssetSolana(
           connection,
           chainConfigInfo.tokenBridgeAddress,
-          transferPayload.originChain,
-          hexToUint8Array(transferPayload.originAddress)
+          transferWithArbPayload.originChain,
+          hexToUint8Array(transferWithArbPayload.originAddress)
         );
   if (!solanaMintAddress) {
     throw new Error(
-      `Unable to determine mint for origin chain: ${transferPayload.originChain}, address: ${transferPayload.originAddress} (${nativeOrigin})`
+      `Unable to determine mint for origin chain: ${transferWithArbPayload.originChain}, address: ${transferWithArbPayload.originAddress} (${nativeOrigin})`
     );
   }
   const solanaMintKey = new PublicKey(solanaMintAddress);
@@ -128,7 +180,7 @@ export async function relaySolana(
         keypair.publicKey // payer
       )
     );
-    const { blockhash } = await connection.getRecentBlockhash();
+    const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = keypair.publicKey;
     // sign, send, and confirm transaction
@@ -150,22 +202,43 @@ export async function relaySolana(
     MAX_VAA_UPLOAD_RETRIES_SOLANA
   );
 
-  logger.debug("Redeeming.");
-  const unsignedTransaction = await redeemOnSolana(
-    connection,
-    chainConfigInfo.bridgeAddress,
-    chainConfigInfo.tokenBridgeAddress,
-    payerAddress,
-    signedVaaArray,
-    feeRecipientAddress.toString()
+  const wormholeAddresses = await getWormholeAddressesForMint(
+    new PublicKey(chainConfigInfo.bridgeAddress),
+    new PublicKey(chainConfigInfo.tokenBridgeAddress),
+    swimUsdMint,
+    ethTokenBridge, // TODO do i really need these?
+    bscTokenBridge,
   );
 
-  logger.debug("Sending.");
-  unsignedTransaction.partialSign(keypair);
-  const txid = await connection.sendRawTransaction(
-    unsignedTransaction.serialize()
-  );
-  await connection.confirmTransaction(txid);
+  const swimTxns = await generatePropellerEngineTxns(
+    solanaRoutingContract,
+    signedVaaBuffer,
+    env.swimSolanaContractAddress,
+    swimUsdMint,
+    wormholeAddresses,
+    keypair,
+    twoPoolProgram,
+    Spl.token(solanaProvider),
+    DEFAULT_SOL_USD_FEED,
+    keypair,
+  )
+
+  let swimTxnIndex = 0;
+  logger.debug("starting completeNativeWithPayloadTxn");
+  const completeNativeWithPayloadTxn = swimTxns[swimTxnIndex++];
+  const completeNativeWithPayloadTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(completeNativeWithPayloadTxn);
+
+  logger.debug("starting createOwnerAtaTxn");
+  const createOwnerAtaTxn = swimTxns[swimTxnIndex++];
+  const createOwnerAtaTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(createOwnerAtaTxn);
+
+  logger.debug("starting processSwimPayloadTxn");
+  const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
+  const processSwimPayloadTxnSig =
+    await propellerEngineAnchorProvider.sendAndConfirm(
+      processSwimPayloadTxn,
+      [keypair],
+    );
 
   logger.debug("Checking to see if the transaction is complete.");
   const success = await getIsTransferCompletedSolana(
@@ -174,7 +247,10 @@ export async function relaySolana(
     connection
   );
 
-  logger.info("success: %s, tx hash: %s", success, txid);
+  logger.info(
+    "success: %s, tx hashes:\n 1: %s\n 2: %s\n 3: %s",
+    success, completeNativeWithPayloadTxnSig, createOwnerAtaTxnSig, processSwimPayloadTxnSig
+  );
   metrics.incSuccesses(chainConfigInfo.chainId);
-  return { redeemed: success, result: txid };
+  return { redeemed: success, result: processSwimPayloadTxnSig };
 }
