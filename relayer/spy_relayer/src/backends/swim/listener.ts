@@ -129,6 +129,7 @@ export class SwimListener implements Listener {
 
     const baseKey = payload.extraPayload.targetChainRecipient;
     const currentNumRequests = await getCurrentRate(baseKey);
+    this.logger.debug("currentNumRequests: " + currentNumRequests);
 
     return currentNumRequests >= 0 ? currentNumRequests >= env.requestLimit : false;
   }
@@ -209,7 +210,7 @@ export class SwimListener implements Listener {
       !this.verifyIsPropellerEnabled(parsedPayload) ||
       !(await this.verifyIsRateLimited(parsedPayload))
     ) {
-      return "Validation failed for vaa sequence " + parsedVaa.sequence;
+      return "Validation failed for VAA sequence " + parsedVaa.sequence + " from chainId " + parsedVaa.emitterChain;
     }
 
     // Great success!
