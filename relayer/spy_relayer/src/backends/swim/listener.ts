@@ -131,7 +131,7 @@ export class SwimListener implements Listener {
     const currentNumRequests = await getCurrentRate(baseKey);
     this.logger.debug("currentNumRequests: " + currentNumRequests);
 
-    return currentNumRequests >= 0 ? currentNumRequests >= env.requestLimit : false;
+    return currentNumRequests >= 0 ? currentNumRequests < env.requestLimit : false;
   }
 
   /** Parses a raw VAA byte array
