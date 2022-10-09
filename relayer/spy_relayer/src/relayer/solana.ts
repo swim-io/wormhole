@@ -208,11 +208,13 @@ export async function relaySolana(
     MAX_VAA_UPLOAD_RETRIES_SOLANA
   );
 
+  logger.debug("calling getPropellerPda");
   const propeller = await getPropellerPda(
     swimUsdMint,
     env.swimSolanaContractAddress
   );
 
+  logger.debug("calling getPropellerFeeTrackerAddr");
   // initialize fee tracker if needed
   const feeTrackerPda = await getPropellerFeeTrackerAddr(
     swimUsdMint,
