@@ -106,8 +106,11 @@ const getMarginalPricePoolInfo = async (
   const propellerData = await propellerProgram.account.propeller.fetch(
     propeller,
   );
+  console.info(`got propellerData`, propellerData);
   const marginalPricePool = propellerData.marginalPricePool;
+  console.info(`got marginalPricePool`, marginalPricePool)
   const pool = await twoPoolProgram.account.twoPool.fetch(marginalPricePool);
+  console.info(`got pool`, pool);
   return {
     pool: marginalPricePool,
     token0Account: pool.tokenKeys[0],
