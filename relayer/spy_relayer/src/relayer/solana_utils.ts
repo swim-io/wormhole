@@ -78,7 +78,7 @@ async function getPropellerRedeemerPda(
   )[0];
 }
 
-const getPropellerFeeTrackerAddr = async (
+export const getPropellerFeeTrackerAddr = async (
   swimUsdMint: PublicKey,
   feeTrackerOwner: PublicKey,
   propellerProgramId: PublicKey,

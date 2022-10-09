@@ -26,11 +26,13 @@ import {
   Program,
   Spl,
   Wallet as AnchorWallet,
+  web3
 } from "@project-serum/anchor";
 import {
   generatePropellerEngineTxns,
   getWormholeAddressesForMint,
   getPropellerPda,
+  getPropellerFeeTrackerAddr,
 } from "./solana_utils";
 import { idl } from "@swim-io/solana-contracts";
 
@@ -206,6 +208,37 @@ export async function relaySolana(
     MAX_VAA_UPLOAD_RETRIES_SOLANA
   );
 
+  const propeller = await getPropellerPda(
+    swimUsdMint,
+    env.swimSolanaContractAddress
+  );
+
+  // initialize fee tracker if needed
+  const feeTrackerPda = await getPropellerFeeTrackerAddr(
+    swimUsdMint,
+    keypair.publicKey,
+    solanaRoutingContract.programId
+  );
+
+  const feeTrackerAtaData = await Spl.token(solanaProvider).account.token.fetchNullable(
+    feeTrackerPda[0]
+  );
+
+  if(!feeTrackerAtaData) {
+    const initFeeTrackers = solanaRoutingContract.methods
+    .initializeFeeTracker()
+    .accounts({
+      propeller,
+      payer: keypair.publicKey,
+      swimUsdMint: swimUsdMint,
+      systemProgram: web3.SystemProgram.programId,
+    });
+    const initializeFeeTrackersTxn = await initFeeTrackers.transaction();
+    await solanaProvider.sendAndConfirm(initializeFeeTrackersTxn, [
+      keypair,
+    ]);
+  }
+
   const wormholeAddresses = await getWormholeAddressesForMint(
     new PublicKey(chainConfigInfo.bridgeAddress),
     new PublicKey(chainConfigInfo.tokenBridgeAddress),
@@ -217,10 +250,7 @@ export async function relaySolana(
   const swimTxns = await generatePropellerEngineTxns(
     solanaRoutingContract,
     signedVaaBuffer,
-    await getPropellerPda(
-      swimUsdMint,
-      env.swimSolanaContractAddress
-    ),
+    propeller,
     swimUsdMint,
     wormholeAddresses,
     keypair,
