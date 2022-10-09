@@ -27,7 +27,11 @@ import {
   Spl,
   Wallet as AnchorWallet,
 } from "@project-serum/anchor";
-import { generatePropellerEngineTxns, getWormholeAddressesForMint } from "./solana_utils";
+import {
+  generatePropellerEngineTxns,
+  getWormholeAddressesForMint,
+  getPropellerPda,
+} from "./solana_utils";
 import { idl } from "@swim-io/solana-contracts";
 
 const MAX_VAA_UPLOAD_RETRIES_SOLANA = 5;
@@ -213,7 +217,10 @@ export async function relaySolana(
   const swimTxns = await generatePropellerEngineTxns(
     solanaRoutingContract,
     signedVaaBuffer,
-    env.swimSolanaContractAddress,
+    await getPropellerPda(
+      swimUsdMint,
+      env.swimSolanaContractAddress
+    ),
     swimUsdMint,
     wormholeAddresses,
     keypair,

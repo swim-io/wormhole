@@ -55,6 +55,18 @@ const getSwimPayloadMessagePda = async (
   );
 };
 
+export async function getPropellerPda(
+  mint: web3.PublicKey,
+  programId: web3.PublicKey,
+): Promise<web3.PublicKey> {
+  return (
+    await web3.PublicKey.findProgramAddress(
+      [Buffer.from("propeller"), mint.toBytes()],
+      programId,
+    )
+  )[0];
+}
+
 async function getPropellerRedeemerPda(
   programId: PublicKey,
 ): Promise<PublicKey> {
