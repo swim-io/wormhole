@@ -357,10 +357,13 @@ export const generatePropellerEngineTxns = async (
   `);
 
   const parsedVaa = await parseVaaTyped(tokenTransferWithPayloadSignedVaa);
+  console.log('parsedVaa');
   const parsedTransferWithSwimPayload = parseTransferWithArbPayload(parsedVaa.payload);
+  console.log("parsedTransferWithSwimPayload");
   const swimPayload = parseSwimPayload(
     parsedTransferWithSwimPayload.extraPayload,
   );
+  console.log("parsedSwimPayload");
 
   const requestUnitsIx = web3.ComputeBudgetProgram.requestUnits({
     // units: 420690,
