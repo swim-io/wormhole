@@ -221,7 +221,9 @@ export async function relaySolana(
     keypair.publicKey,
     solanaRoutingContract.programId
   );
+  logger.debug("done, feeTrackerPda is ", feeTrackerPda);
 
+  logger.debug("calling fetchNullable");
   const feeTrackerAtaData = await Spl.token(solanaProvider).account.token.fetchNullable(
     feeTrackerPda[0]
   );
