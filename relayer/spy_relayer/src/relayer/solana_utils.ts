@@ -302,13 +302,16 @@ export const generatePropellerEngineTxns = async (
     propeller,
     true,
   );
+  console.info(`got propellerFeeVault`);
   const propellerRedeemer = await getPropellerRedeemerPda(
     propellerProgram.programId,
   );
+  console.info(`got propellerRedeemer`);
 
   const propellerRedeemerEscrowAccount: PublicKey =
     await Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, swimUsdMint, propellerRedeemer, true);
 
+  console.info(`got propellerRedeemerEscrowAccount`)
   const marginalPricePoolInfo = await getMarginalPricePoolInfo(
     propeller,
     propellerProgram,
