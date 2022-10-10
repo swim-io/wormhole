@@ -18,6 +18,7 @@ import {
 import { parseVaaTyped } from "../listener/validation";
 import { parseSwimPayload, parseTransferWithArbPayload } from "../utils/swim";
 import keccak256 from "keccak256";
+import { base58 } from "ethers/lib/utils";
 
 function hashVaa(signedVaa: Buffer): Buffer {
   const sigStart = 6;
@@ -450,7 +451,10 @@ export const generatePropellerEngineTxns = async (
     await propellerProgram.account.tokenIdMap.fetchNullable(tokenIdMapAddr);
   console.info(`tokenIdMapData`);
   console.info(`swimPayload.targetchainRecipient: ${swimPayload.targetChainRecipient}`);
-  const owner = new PublicKey(swimPayload.targetChainRecipient);
+  // convert swimPayload.targetChainRecipient from hex to base58
+  const targetChainRecipientSolana = base58.encode(Buffer.from(swimPayload.targetChainRecipient.replace(/^0x/, ""), "hex"))
+  console.info(`targetchainRecipientSolana: ${targetChainRecipientSolana}`);
+  const owner = new PublicKey(targetChainRecipientSolana);
   console.info(`owner`);
   const [swimClaim] = await getSwimClaimPda(
     wormholeClaim,
