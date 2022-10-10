@@ -229,6 +229,8 @@ export async function relaySolana(
     feeTrackerPda
   );
 
+  logger.debug("checking feeTrackerAtaData");
+  logger.debug(!feeTrackerAtaData);
   if(!feeTrackerAtaData) {
     const initFeeTrackers = solanaRoutingContract.methods
     .initializeFeeTracker()
@@ -244,6 +246,7 @@ export async function relaySolana(
     ]);
   }
 
+  logger.debug("getWormholeAddressesForMint");
   const wormholeAddresses = await getWormholeAddressesForMint(
     new PublicKey(chainConfigInfo.bridgeAddress),
     new PublicKey(chainConfigInfo.tokenBridgeAddress),
