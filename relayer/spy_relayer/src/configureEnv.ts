@@ -89,6 +89,8 @@ export type RelayerEnvironment = {
   supportedTokens: { chainId: ChainId; address: string }[];
   swimEvmContractAddress: string;
   swimSolanaContractAddress: PublicKey;
+  swimTwoPoolAddress: PublicKey;
+  swimUsdMint: PublicKey;
 };
 
 export type ChainConfigInfo = {
@@ -255,6 +257,8 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   let supportedTokens: { chainId: ChainId; address: string }[] = [];
   let swimEvmContractAddress: string;
   let swimSolanaContractAddress: PublicKey;
+  let swimTwoPoolAddress: PublicKey;
+  let swimUsdMint: PublicKey;
   const logger = getLogger();
 
   if (!process.env.REDIS_HOST) {
@@ -298,7 +302,6 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   if (!process.env.SUPPORTED_TOKENS) {
     throw new Error("Missing required environment variable: SUPPORTED_TOKENS");
   } else {
-    // const array = JSON.parse(process.env.SUPPORTED_TOKENS);
     const array = eval(process.env.SUPPORTED_TOKENS);
     if (!array || !Array.isArray(array)) {
       throw new Error("SUPPORTED_TOKENS is not an array.");
@@ -326,6 +329,15 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
   }
   swimSolanaContractAddress = new PublicKey(process.env.SWIM_SOLANA_ROUTING_ADDRESS);
 
+  if(!process.env.SWIM_TWO_POOL_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_TWO_POOL_ADDRESS") ;
+  }
+  swimTwoPoolAddress = new PublicKey(process.env.SWIM_TWO_POOL_ADDRESS);
+
+  if(!process.env.SWIM_USD_MINT_ADDRESS) {
+    throw new Error("Missing required environment variable: SWIM_USD_MINT_ADDRESS") ;
+  }
+  swimUsdMint = new PublicKey(process.env.SWIM_USD_MINT_ADDRESS);
   logger.info("Setting the relayer backend...");
 
   return {
@@ -336,7 +348,9 @@ const createRelayerEnvironment: () => RelayerEnvironment = () => {
     demoteWorkingOnInit,
     supportedTokens,
     swimEvmContractAddress,
-    swimSolanaContractAddress
+    swimSolanaContractAddress,
+    swimTwoPoolAddress,
+    swimUsdMint
   };
 };
 

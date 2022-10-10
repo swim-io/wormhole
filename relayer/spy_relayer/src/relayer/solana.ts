@@ -1,14 +1,11 @@
 import {
   CHAIN_ID_SOLANA,
-  CHAIN_ID_ETH,
-  CHAIN_ID_BSC,
   getForeignAssetSolana,
   getIsTransferCompletedSolana,
   hexToUint8Array,
   importCoreWasm,
   postVaaSolanaWithRetry,
   tryHexToNativeAssetString,
-  tryNativeToHexString,
 } from "@certusone/wormhole-sdk";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -26,36 +23,16 @@ import {
   Program,
   Spl,
   Wallet as AnchorWallet,
-  web3
 } from "@project-serum/anchor";
 import {
   generatePropellerEngineTxns,
   getWormholeAddressesForMint,
   getPropellerPda,
-  getPropellerFeeTrackerAddr,
 } from "./solana_utils";
 import { idl } from "@swim-io/solana-contracts";
 
 const MAX_VAA_UPLOAD_RETRIES_SOLANA = 5;
 
-// TODO put this in env file?
-const twoPoolKey = new PublicKey("8VNVtWUae4qMe535i4yL1gD3VTo8JhcfFEygaozBq8aM");
-const swimUsdMint = new PublicKey("3ngTtoyP9GFybFifX1dr7gCFXFiM2Wr6NfXn6EuU7k6C");
-const DEFAULT_SOL_USD_FEED = new PublicKey("GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR"); // for aggregator
-
-const ethTokenBridgeStr = "0xF890982f9310df57d00f659cf4fd87e65adEd8d7";
-const ethTokenBridgeEthHexStr = tryNativeToHexString(
-  ethTokenBridgeStr,
-  CHAIN_ID_ETH,
-);
-export const ethTokenBridge = Buffer.from(ethTokenBridgeEthHexStr, "hex");
-
-const bscTokenBridgeStr = "0x0290FB167208Af455bB137780163b7B7a9a10C16";
-const bscTokenBridgeBscHexStr = tryNativeToHexString(
-  bscTokenBridgeStr,
-  CHAIN_ID_BSC,
-);
-export const bscTokenBridge = Buffer.from(bscTokenBridgeBscHexStr, "hex");
 
 export async function relaySolana(
   chainConfigInfo: ChainConfigInfo,
@@ -83,6 +60,7 @@ export async function relaySolana(
   const solanaProvider = new AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
   const env = getRelayerEnvironment();
 
+  const swimUsdMint = env.swimUsdMint;
   const solanaRoutingContract = new Program(
     idl.propeller,
     env.swimSolanaContractAddress,
@@ -91,7 +69,7 @@ export async function relaySolana(
 
   const twoPoolProgram = new Program(
     idl.twoPool,
-    twoPoolKey,
+    env.swimTwoPoolAddress,
     solanaProvider
   );
 
@@ -254,8 +232,6 @@ export async function relaySolana(
     new PublicKey(chainConfigInfo.bridgeAddress),
     new PublicKey(chainConfigInfo.tokenBridgeAddress),
     swimUsdMint,
-    ethTokenBridge, // TODO do i really need these?
-    bscTokenBridge,
   );
 
   const swimTxns = await generatePropellerEngineTxns(
@@ -267,7 +243,6 @@ export async function relaySolana(
     keypair,
     twoPoolProgram,
     Spl.token(solanaProvider),
-    DEFAULT_SOL_USD_FEED,
     keypair,
   )
 

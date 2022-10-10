@@ -61,7 +61,10 @@ Variables to modify:
 2. `PRIVATE_KEYS` - Private keys of engine wallets, one private key per chain.
 3. `SUPPORTED_TOKENS` - array of JSON objects with supported tokens and their chain IDs. Used for validation on listener.
 4. `SPY_SERVICE_FILTERS` - only allows VAAs that are from the corresponding contract address + chain ID combo to be processed by the engine.
-5. `SWIM_EVM_ROUTING_ADDRESS` - address of routing contract. Need this to validate where VAAs are coming from as well as to relay them.
+5. `SWIM_EVM_ROUTING_ADDRESS` - address of EVM routing contract. Need this to validate where VAAs are coming from as well as to relay them.
+6. `SWIM_SOLANA_ROUTING_ADDRESS` - address of solana routing contract.
+7. `SWIM_TWO_POOL_ADDRESS` - solana address of Two Pool program. Used to generate transactions when relaying solana.
+8. `SWIM_USD_MINT_ADDRESS` - solana address of swimUSD. Used for relaying solana.
 
 
 ## `PRIVATE_KEYS`
@@ -120,6 +123,26 @@ SPY_SERVICE_FILTERS=
         "emitterAddress": "0x9dcF9D205C9De35334D646BeE44b2D2859712A09"
     }
 ]
+```
+
+## `SWIM_EVM_ROUTING_ADDRESS`
+```
+SWIM_EVM_ROUTING_ADDRESS=0x280999aB9aBfDe9DC5CE7aFB25497d6BB3e8bDD4
+```
+
+## `SWIM_SOLANA_ROUTING_ADDRESS`
+```
+SWIM_SOLANA_ROUTING_ADDRESS=9z6G41AyXk73r1E4nTv81drQPtEqupCSAnsLdGV5WGfK
+```
+
+## `SWIM_TWO_POOL_ADDRESS`
+```
+SWIM_TWO_POOL_ADDRESS=8VNVtWUae4qMe535i4yL1gD3VTo8JhcfFEygaozBq8aM
+```
+
+## `SWIM_USD_MINT_ADDRESS`
+```
+SWIM_USD_MINT_ADDRESS=3ngTtoyP9GFybFifX1dr7gCFXFiM2Wr6NfXn6EuU7k6C
 ```
 
 #### Footnotes

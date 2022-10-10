@@ -4,8 +4,6 @@ import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { MEMO_PROGRAM_ID } from "@solana/spl-memo";
 import { BN, web3 } from "@project-serum/anchor";
 import {
-  CHAIN_ID_ETH,
-  CHAIN_ID_BSC,
   ChainId,
   getClaimAddressSolana,
   tryHexToNativeString,
@@ -19,7 +17,9 @@ import {
 import { parseVaaTyped } from "../listener/validation";
 import { parseSwimPayload, parseTransferWithArbPayload } from "../utils/swim";
 import keccak256 from "keccak256";
-import { base58 } from "ethers/lib/utils";
+import { getScopedLogger, ScopedLogger } from "../helpers/logHelper";
+
+const logger = getScopedLogger(["solana_utils"]);
 
 function hashVaa(signedVaa: Buffer): Buffer {
   const sigStart = 6;
@@ -122,11 +122,8 @@ const getMarginalPricePoolInfo = async (
   const propellerData = await propellerProgram.account.propeller.fetch(
     propeller,
   );
-  console.info(`got propellerData`, propellerData);
   const marginalPricePool = propellerData.marginalPricePool;
-  console.info(`got marginalPricePool`, marginalPricePool)
   const pool = await twoPoolProgram.account.twoPool.fetch(marginalPricePool);
-  console.info(`got pool`, pool);
   return {
     pool: marginalPricePool,
     token0Account: pool.tokenKeys[0],
@@ -180,8 +177,6 @@ const getOwnerTokenAccountsForPool = async (
 type WormholeAddresses = {
   readonly wormhole: PublicKey;
   readonly tokenBridge: PublicKey;
-  readonly ethEndpointAccount: PublicKey;
-  readonly bscEndpointAccount: PublicKey;
   readonly custody: PublicKey;
   readonly wormholeConfig: PublicKey;
   readonly wormholeFeeCollector: PublicKey;
@@ -203,20 +198,7 @@ export const getWormholeAddressesForMint = async (
   wormhole: web3.PublicKey,
   tokenBridge: web3.PublicKey,
   mint: web3.PublicKey,
-  ethTokenBridge: Buffer,
-  bscTokenBridge: Buffer,
 ): Promise<WormholeAddresses> => {
-  const [ethEndpointAccount] = await deriveEndpointPda(
-    CHAIN_ID_ETH,
-    ethTokenBridge,
-    tokenBridge,
-  );
-
-  const [bscEndpointAccount] = await deriveEndpointPda(
-    CHAIN_ID_BSC,
-    bscTokenBridge,
-    tokenBridge,
-  );
   const [custody] = await (async () => {
     return await web3.PublicKey.findProgramAddress(
       [mint.toBytes()],
@@ -232,10 +214,7 @@ export const getWormholeAddressesForMint = async (
     [Buffer.from("fee_collector")],
     wormhole,
   );
-  // wh functions return in a hex string format
-  // wormholeEmitter = new web3.PublicKey(
-  //   tryHexToNativeString(await getEmitterAddressSolana(tokenBridge.toBase58()), CHAIN_ID_SOLANA)
-  //   );
+
   const [wormholeEmitter] = await web3.PublicKey.findProgramAddress(
     [Buffer.from("emitter")],
     tokenBridge,
@@ -260,8 +239,6 @@ export const getWormholeAddressesForMint = async (
   return {
     wormhole,
     tokenBridge,
-    ethEndpointAccount,
-    bscEndpointAccount,
     custody,
     wormholeConfig,
     wormholeFeeCollector,
@@ -282,7 +259,6 @@ export const generatePropellerEngineTxns = async (
   payer: Keypair,
   twoPoolProgram: Program<TwoPool>,
   splToken: Program<SplToken>,
-  aggregator: PublicKey,
   userTransferAuthority: Keypair,
 ): Promise<readonly Transaction[]> => {
   let txns: readonly Transaction[] = [];
@@ -306,13 +282,6 @@ export const generatePropellerEngineTxns = async (
     propellerProgram.programId,
   );
 
-  console.info(`
-    generatePropellerEngineTnxs
-      wormholeMESSAGE: ${wormholeMessage.toBase58()}
-      wormholeClaim: ${wormholeClaim.toBase58()}
-      swimPayloadMessage: ${swimPayloadMessage.toBase58()})
-  `);
-
   const propellerFeeVault: PublicKey = await Token.getAssociatedTokenAddress(
     ASSOCIATED_TOKEN_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
@@ -320,65 +289,43 @@ export const generatePropellerEngineTxns = async (
     propeller,
     true,
   );
-  console.info(`got propellerFeeVault`);
   const propellerRedeemer = await getPropellerRedeemerPda(
     propellerProgram.programId,
   );
-  console.info(`got propellerRedeemer`);
 
   const propellerRedeemerEscrowAccount: PublicKey =
     await Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, swimUsdMint, propellerRedeemer, true);
 
-  console.info(`got propellerRedeemerEscrowAccount`)
   const marginalPricePoolInfo = await getMarginalPricePoolInfo(
     propeller,
     propellerProgram,
     twoPoolProgram,
   );
-  console.info(`
-    marginalPricePoolInfo: ${JSON.stringify(marginalPricePoolInfo, null, 2)}
-  `);
   const propellerEngineFeeTracker = await getPropellerFeeTrackerAddr(
     swimUsdMint,
     payer.publicKey,
     propellerProgram.programId,
   );
 
-  console.info(`
-  getPropellerEngineTxns:
-    propellerEngineFeeTracker: ${propellerEngineFeeTracker.toBase58()}
-  `);
-
   const propellerEngineFeeTrackerData =
     await propellerProgram.account.feeTracker.fetch(propellerEngineFeeTracker);
-  console.info(`
-    propellerEngineFeeTrackerData: ${JSON.stringify(
-      propellerEngineFeeTrackerData,
-      null,
-      2,
-    )}
-  `);
 
   const parsedVaa = await parseVaaTyped(tokenTransferWithPayloadSignedVaa);
-  console.info('parsedVaa', parsedVaa);
   const parsedTransferWithSwimPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
-  console.info("parsedTransferWithSwimPayload");
   const swimPayload = parseSwimPayload(
     Buffer.from(parsedTransferWithSwimPayload.extraPayload),
   );
-  console.info("parsedSwimPayload");
 
   const requestUnitsIx = web3.ComputeBudgetProgram.requestUnits({
     // units: 420690,
     units: 900000,
     additionalFee: 0,
   });
+
   const propellerData = await propellerProgram.account.propeller.fetch(
     propeller,
   );
-  console.info(`
-    propellerData: ${JSON.stringify(propellerData, null, 2)}
-  `);
+  const aggregator = propellerData.aggregator;
 
   const [foreignEndpoint] = await deriveEndpointPda(
     parsedVaa.emitterChain,
@@ -409,9 +356,6 @@ export const generatePropellerEngineTxns = async (
       tokenBridge: wormholeAddresses.tokenBridge,
     })
     .pubkeys();
-  console.info(`
-    completePubkeys: ${JSON.stringify(completePubkeys, null, 2)}
-  `);
 
   const completeNativeWithPayloadIxs = propellerProgram.methods
     .propellerCompleteNativeWithPayload()
@@ -434,43 +378,30 @@ export const generatePropellerEngineTxns = async (
   const completeNativeWithPayloadPubkeys =
     await completeNativeWithPayloadIxs.pubkeys();
 
-  console.info(
-    `completeNativeWithPayloadPubkeys: ${JSON.stringify(
-      completeNativeWithPayloadPubkeys,
-      null,
-      2,
-    )}`,
-  );
   const completeNativeWithPayloadTxn =
     await completeNativeWithPayloadIxs.transaction();
-  console.info('completeNativeWithPayloadTxn');
   txns = [completeNativeWithPayloadTxn];
+
   const targetTokenId = swimPayload.swimTokenNumber!;
-  console.info(`targettokenId ${targetTokenId}`);
   const [tokenIdMapAddr] = await getTargetTokenIdMapAddr(
     propeller,
     targetTokenId,
     propellerProgram.programId,
   );
-  console.info(`getTargetTokenIdMapAddr`);
+
   const tokenIdMapData =
     await propellerProgram.account.tokenIdMap.fetchNullable(tokenIdMapAddr);
-  console.info(`tokenIdMapData`);
-  console.info(`swimPayload.targetchainRecipient: ${swimPayload.targetChainRecipient}`);
   // convert swimPayload.targetChainRecipient from hex to base58
-  //const targetChainRecipientSolana = base58.encode(Buffer.from(swimPayload.targetChainRecipient.replace(/^0x/, ""), "hex"))
   const targetChainRecipientSolana = tryHexToNativeString(swimPayload.targetChainRecipient, parsedTransferWithSwimPayload.targetChain);
-  console.info(`targetchainRecipientSolana: ${targetChainRecipientSolana}`);
   const owner = new PublicKey(targetChainRecipientSolana);
-  console.info(`owner`);
+
   const [swimClaim] = await getSwimClaimPda(
     wormholeClaim,
     propellerProgram.programId,
   );
-  console.info(`getSwimPda`);
 
   if (!tokenIdMapData) {
-    console.info(
+    logger.debug(
       `invalid tokenIdMap. targetTokenId: ${targetTokenId.toString()}. Generating fallback transactions`,
     );
 
@@ -577,7 +508,7 @@ export const generatePropellerEngineTxns = async (
     //   swimPayloadMessage,
     // );
     if (ownerAtas.some((ata) => ata === null)) {
-      console.info(
+      logger.debug(
         "at least one owner ATA was not found. generating txn to create them",
       );
       const createOwnerAtasTxn = await propellerProgram.methods
