@@ -8,6 +8,7 @@ import {
   CHAIN_ID_BSC,
   ChainId,
   getClaimAddressSolana,
+  tryHexToNativeString,
 } from "@certusone/wormhole-sdk";
 import * as byteify from "byteify";
 import {
@@ -457,7 +458,8 @@ export const generatePropellerEngineTxns = async (
   console.info(`tokenIdMapData`);
   console.info(`swimPayload.targetchainRecipient: ${swimPayload.targetChainRecipient}`);
   // convert swimPayload.targetChainRecipient from hex to base58
-  const targetChainRecipientSolana = base58.encode(Buffer.from(swimPayload.targetChainRecipient.replace(/^0x/, ""), "hex"))
+  //const targetChainRecipientSolana = base58.encode(Buffer.from(swimPayload.targetChainRecipient.replace(/^0x/, ""), "hex"))
+  const targetChainRecipientSolana = tryHexToNativeString(swimPayload.targetChainRecipient, parsedTransferWithSwimPayload.targetChain);
   console.info(`targetchainRecipientSolana: ${targetChainRecipientSolana}`);
   const owner = new PublicKey(targetChainRecipientSolana);
   console.info(`owner`);
