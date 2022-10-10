@@ -360,11 +360,10 @@ export const generatePropellerEngineTxns = async (
 
   const parsedVaa = await parseVaaTyped(tokenTransferWithPayloadSignedVaa);
   console.info('parsedVaa', parsedVaa);
-  console.info(Buffer.isBuffer(parsedVaa.payload));
-  const parsedTransferWithSwimPayload = parseTransferWithArbPayload(parsedVaa.payload);
+  const parsedTransferWithSwimPayload = parseTransferWithArbPayload(Buffer.from(parsedVaa.payload));
   console.info("parsedTransferWithSwimPayload");
   const swimPayload = parseSwimPayload(
-    parsedTransferWithSwimPayload.extraPayload,
+    Buffer.from(parsedTransferWithSwimPayload.extraPayload),
   );
   console.info("parsedSwimPayload");
 
