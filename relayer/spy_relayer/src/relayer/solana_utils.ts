@@ -436,20 +436,27 @@ export const generatePropellerEngineTxns = async (
   );
   const completeNativeWithPayloadTxn =
     await completeNativeWithPayloadIxs.transaction();
+  console.info('completeNativeWithPayloadTxn');
   txns = [completeNativeWithPayloadTxn];
   const targetTokenId = swimPayload.swimTokenNumber!;
+  console.info(`targettokenId ${targetTokenId}`);
   const [tokenIdMapAddr] = await getTargetTokenIdMapAddr(
     propeller,
     targetTokenId,
     propellerProgram.programId,
   );
+  console.info(`getTargetTokenIdMapAddr`);
   const tokenIdMapData =
     await propellerProgram.account.tokenIdMap.fetchNullable(tokenIdMapAddr);
+  console.info(`tokenIdMapData`);
+  console.info(`swimPayload.targetchainRecipient: ${swimPayload.targetChainRecipient}`);
   const owner = new PublicKey(swimPayload.targetChainRecipient);
+  console.info(`owner`);
   const [swimClaim] = await getSwimClaimPda(
     wormholeClaim,
     propellerProgram.programId,
   );
+  console.info(`getSwimPda`);
 
   if (!tokenIdMapData) {
     console.info(
