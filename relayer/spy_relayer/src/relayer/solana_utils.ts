@@ -288,7 +288,6 @@ export const generatePropellerEngineTxns = async (
   const {
     custody,
     custodySigner,
-    ethEndpointAccount,
     tokenBridge,
     tokenBridgeConfig,
     wormhole,
@@ -380,6 +379,12 @@ export const generatePropellerEngineTxns = async (
     propellerData: ${JSON.stringify(propellerData, null, 2)}
   `);
 
+  const [foreignEndpoint] = await deriveEndpointPda(
+    parsedVaa.emitterChain,
+    parsedVaa.emitterAddress,
+    tokenBridge,
+  );
+
   const completePubkeys = await propellerProgram.methods
     .completeNativeWithPayload()
     .accounts({
@@ -389,7 +394,7 @@ export const generatePropellerEngineTxns = async (
       message: wormholeMessage,
       claim: wormholeClaim,
       swimPayloadMessage: swimPayloadMessage,
-      endpoint: ethEndpointAccount,
+      endpoint: foreignEndpoint,
       to: propellerRedeemerEscrowAccount,
       redeemer: propellerRedeemer,
       feeRecipient: propellerFeeVault,
