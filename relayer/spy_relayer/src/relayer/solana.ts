@@ -222,10 +222,11 @@ export async function relaySolana(
     solanaRoutingContract.programId
   );
   logger.debug("done, feeTrackerPda is ", feeTrackerPda);
+  logger.debug(feeTrackerPda);
 
   logger.debug("calling fetchNullable");
   const feeTrackerAtaData = await Spl.token(solanaProvider).account.token.fetchNullable(
-    feeTrackerPda[0]
+    feeTrackerPda
   );
 
   if(!feeTrackerAtaData) {

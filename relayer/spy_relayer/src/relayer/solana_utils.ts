@@ -83,15 +83,17 @@ export const getPropellerFeeTrackerAddr = async (
   feeTrackerOwner: PublicKey,
   propellerProgramId: PublicKey,
 ) => {
-  return await PublicKey.findProgramAddress(
-    [
-      Buffer.from("propeller"),
-      Buffer.from("fee"),
-      swimUsdMint.toBuffer(),
-      feeTrackerOwner.toBuffer(),
-    ],
-    propellerProgramId,
-  );
+  return (
+      await PublicKey.findProgramAddress(
+      [
+        Buffer.from("propeller"),
+        Buffer.from("fee"),
+        swimUsdMint.toBuffer(),
+        feeTrackerOwner.toBuffer(),
+      ],
+      propellerProgramId,
+    )
+  )[0];
 };
 
 const getTargetTokenIdMapAddr = async (
@@ -335,7 +337,7 @@ export const generatePropellerEngineTxns = async (
   console.info(`
     marginalPricePoolInfo: ${JSON.stringify(marginalPricePoolInfo, null, 2)}
   `);
-  const [propellerEngineFeeTracker] = await getPropellerFeeTrackerAddr(
+  const propellerEngineFeeTracker = await getPropellerFeeTrackerAddr(
     swimUsdMint,
     payer.publicKey,
     propellerProgram.programId,
