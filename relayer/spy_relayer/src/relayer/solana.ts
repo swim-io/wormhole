@@ -216,6 +216,7 @@ export async function relaySolana(
 
   logger.debug("calling getPropellerFeeTrackerAddr");
   // initialize fee tracker if needed
+  /*
   const feeTrackerPda = await getPropellerFeeTrackerAddr(
     swimUsdMint,
     keypair.publicKey,
@@ -225,6 +226,7 @@ export async function relaySolana(
   logger.debug(feeTrackerPda);
 
   logger.debug("calling fetchNullable");
+  // error here:  Invalid coption undefined
   const feeTrackerAtaData = await Spl.token(solanaProvider).account.token.fetchNullable(
     feeTrackerPda
   );
@@ -245,6 +247,7 @@ export async function relaySolana(
       keypair,
     ]);
   }
+  */
 
   logger.debug("getWormholeAddressesForMint");
   const wormholeAddresses = await getWormholeAddressesForMint(
