@@ -59,7 +59,13 @@ export async function relaySolana(
   const keypair = Keypair.fromSecretKey(walletPrivateKey);
   const payerAddress = keypair.publicKey.toString();
   const anchorWallet = new AnchorWallet(keypair);
-  const solanaProvider = new AnchorProvider(connection, anchorWallet, { commitment: "confirmed" });
+  const solanaProvider = new AnchorProvider(connection, anchorWallet,
+    {
+      commitment: "confirmed",
+      preflightCommitment: "confirmed",
+      skipPreflight: true,
+    }
+  );
   const env = getRelayerEnvironment();
 
   const swimUsdMint = env.swimUsdMint;
