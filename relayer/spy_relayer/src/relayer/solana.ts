@@ -244,7 +244,7 @@ export async function relaySolana(
     twoPoolProgram,
     Spl.token(solanaProvider),
     keypair,
-  )
+  );
 
   let swimTxnIndex = 0;
   logger.debug("starting completeNativeWithPayloadTxn");
@@ -252,19 +252,32 @@ export async function relaySolana(
   const completeNativeWithPayloadTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(completeNativeWithPayloadTxn);
   logger.debug(`completeNativeWithPayloadTxn complete ${completeNativeWithPayloadTxnSig}`);
 
-  logger.debug("starting createOwnerAtaTxn");
-  const createOwnerAtaTxn = swimTxns[swimTxnIndex++];
-  const createOwnerAtaTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(createOwnerAtaTxn);
-  logger.debug(`createOwnerAtaTxn complete ${createOwnerAtaTxnSig}`);
+  if (swimTxns.length == 2) {
+    // if ownerAta already exists, then there's only one more txn
+    logger.debug("starting processSwimPayloadTxn");
+    const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
+    const processSwimPayloadTxnSig =
+      await propellerEngineAnchorProvider.sendAndConfirm(
+        processSwimPayloadTxn,
+        [keypair],
+      );
+    logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
+  } else {
+    // ownerAta doesnt exist, need another txn to create it
+    logger.debug("starting createOwnerAtaTxn");
+    const createOwnerAtaTxn = swimTxns[swimTxnIndex++];
+    const createOwnerAtaTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(createOwnerAtaTxn);
+    logger.debug(`createOwnerAtaTxn complete ${createOwnerAtaTxnSig}`);
 
-  logger.debug("starting processSwimPayloadTxn");
-  const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
-  const processSwimPayloadTxnSig =
-    await propellerEngineAnchorProvider.sendAndConfirm(
-      processSwimPayloadTxn,
-      [keypair],
-    );
-  logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
+    logger.debug("starting processSwimPayloadTxn");
+    const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
+    const processSwimPayloadTxnSig =
+      await propellerEngineAnchorProvider.sendAndConfirm(
+        processSwimPayloadTxn,
+        [keypair],
+      );
+    logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
+  }
 
   logger.debug("Checking to see if the transaction is complete.");
   const success = await getIsTransferCompletedSolana(
@@ -274,9 +287,9 @@ export async function relaySolana(
   );
 
   logger.info(
-    "success: %s, tx hashes:\n 1: %s\n 2: %s\n 3: %s",
-    success, completeNativeWithPayloadTxnSig, createOwnerAtaTxnSig, processSwimPayloadTxnSig
+    "success: %s",
+    success
   );
   metrics.incSuccesses(chainConfigInfo.chainId);
-  return { redeemed: success, result: processSwimPayloadTxnSig };
+  return { redeemed: success, result: completeNativeWithPayloadTxnSig };
 }
