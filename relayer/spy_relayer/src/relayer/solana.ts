@@ -206,7 +206,7 @@ export async function relaySolana(
 
   logger.debug("calling fetchNullable");
   // error here:  Invalid coption undefined
-  const feeTrackerAtaData = await Spl.token(solanaProvider).account.token.fetchNullable(
+  const feeTrackerAtaData = solanaRoutingContract.account.feeTracker.fetchNullable(
     feeTrackerPda
   );
 
