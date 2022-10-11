@@ -62,8 +62,6 @@ export async function relaySolana(
   const solanaProvider = new AnchorProvider(connection, anchorWallet,
     {
       commitment: "confirmed",
-      preflightCommitment: "confirmed",
-      skipPreflight: true,
     }
   );
   const env = getRelayerEnvironment();
@@ -84,7 +82,11 @@ export async function relaySolana(
   const propellerEngineAnchorProvider = new AnchorProvider(
     solanaProvider.connection,
     anchorWallet,
-    { commitment: "confirmed" },
+    {
+      commitment: "confirmed",
+      preflightCommitment: "confirmed",
+      skipPreflight: true,
+    }
   );
 
   logger.info(
