@@ -250,10 +250,12 @@ export async function relaySolana(
   logger.debug("starting completeNativeWithPayloadTxn");
   const completeNativeWithPayloadTxn = swimTxns[swimTxnIndex++];
   const completeNativeWithPayloadTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(completeNativeWithPayloadTxn);
+  logger.debug(`completeNativeWithPayloadTxn complete ${completeNativeWithPayloadTxnSig}`);
 
   logger.debug("starting createOwnerAtaTxn");
   const createOwnerAtaTxn = swimTxns[swimTxnIndex++];
   const createOwnerAtaTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(createOwnerAtaTxn);
+  logger.debug(`createOwnerAtaTxn complete ${createOwnerAtaTxnSig}`);
 
   logger.debug("starting processSwimPayloadTxn");
   const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
@@ -262,6 +264,7 @@ export async function relaySolana(
       processSwimPayloadTxn,
       [keypair],
     );
+  logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
 
   logger.debug("Checking to see if the transaction is complete.");
   const success = await getIsTransferCompletedSolana(
