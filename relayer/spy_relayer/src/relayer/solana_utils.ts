@@ -250,7 +250,7 @@ export const getWormholeAddressesForMint = async (
   };
 };
 
-export const generatePropellerEngineTxns = async (
+export const createPropellerEngineTxns = async (
   propellerProgram: Program<Propeller>,
   tokenTransferWithPayloadSignedVaa: Buffer,
   propeller: PublicKey,

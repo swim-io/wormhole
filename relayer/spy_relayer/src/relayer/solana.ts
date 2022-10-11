@@ -26,7 +26,7 @@ import {
   web3
 } from "@project-serum/anchor";
 import {
-  generatePropellerEngineTxns,
+  createPropellerEngineTxns,
   getWormholeAddressesForMint,
   getPropellerPda,
   getPropellerFeeTrackerAddr
@@ -62,6 +62,8 @@ export async function relaySolana(
   const solanaProvider = new AnchorProvider(connection, anchorWallet,
     {
       commitment: "confirmed",
+      preflightCommitment: "confirmed",
+      skipPreflight: true,
     }
   );
   const env = getRelayerEnvironment();
@@ -77,16 +79,6 @@ export async function relaySolana(
     idl.twoPool,
     env.swimTwoPoolAddress,
     solanaProvider
-  );
-
-  const propellerEngineAnchorProvider = new AnchorProvider(
-    solanaProvider.connection,
-    anchorWallet,
-    {
-      commitment: "confirmed",
-      preflightCommitment: "confirmed",
-      skipPreflight: true,
-    }
   );
 
   logger.info(
@@ -236,7 +228,7 @@ export async function relaySolana(
     swimUsdMint,
   );
 
-  const swimTxns = await generatePropellerEngineTxns(
+  const swimTxns = await createPropellerEngineTxns(
     solanaRoutingContract,
     signedVaaBuffer,
     propeller,
@@ -251,34 +243,28 @@ export async function relaySolana(
   let swimTxnIndex = 0;
   logger.debug("starting completeNativeWithPayloadTxn");
   const completeNativeWithPayloadTxn = swimTxns[swimTxnIndex++];
-  const completeNativeWithPayloadTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(completeNativeWithPayloadTxn);
+  const completeNativeWithPayloadTxnSig = await solanaProvider.sendAndConfirm(completeNativeWithPayloadTxn);
   logger.debug(`completeNativeWithPayloadTxn complete ${completeNativeWithPayloadTxnSig}`);
 
+  let txnNames;
   if (swimTxns.length == 2) {
-    // if ownerAta already exists, then there's only one more txn
-    logger.debug("starting processSwimPayloadTxn");
-    const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
-    const processSwimPayloadTxnSig =
-      await propellerEngineAnchorProvider.sendAndConfirm(
-        processSwimPayloadTxn,
-        [keypair],
-      );
-    logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
+    txnNames = [
+      "completeNativeWithPayloadTxn",
+      "processSwimPayloadTxn"
+    ]
   } else {
-    // ownerAta doesnt exist, need another txn to create it
-    logger.debug("starting createOwnerAtaTxn");
-    const createOwnerAtaTxn = swimTxns[swimTxnIndex++];
-    const createOwnerAtaTxnSig = await propellerEngineAnchorProvider.sendAndConfirm(createOwnerAtaTxn);
-    logger.debug(`createOwnerAtaTxn complete ${createOwnerAtaTxnSig}`);
-
-    logger.debug("starting processSwimPayloadTxn");
-    const processSwimPayloadTxn = swimTxns[swimTxnIndex++];
-    const processSwimPayloadTxnSig =
-      await propellerEngineAnchorProvider.sendAndConfirm(
-        processSwimPayloadTxn,
-        [keypair],
-      );
-    logger.debug(`processSwimPayloadTxn complete ${processSwimPayloadTxnSig}`);
+    txnNames = [
+      "completeNativeWithPayloadTxn",
+      "createOwnerAtaTxn",
+      "processSwimPayloadTxn"
+    ]
+  }
+  for (swimTxnIndex; swimTxnIndex < swimTxns.length; swimTxnIndex++) {
+    const txn = swimTxns[swimTxnIndex];
+    const txnName = txnNames[swimTxnIndex];
+    logger.debug(`starting ${txnName}`);
+    const txnSig = await solanaProvider.sendAndConfirm(txn);
+    logger.debug(`${txnName} complete, txnSig: ${txnSig}`);
   }
 
   logger.debug("Checking to see if the transaction is complete.");
