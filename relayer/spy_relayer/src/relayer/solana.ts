@@ -23,11 +23,13 @@ import {
   Program,
   Spl,
   Wallet as AnchorWallet,
+  web3
 } from "@project-serum/anchor";
 import {
   generatePropellerEngineTxns,
   getWormholeAddressesForMint,
   getPropellerPda,
+  getPropellerFeeTrackerAddr
 } from "./solana_utils";
 import { idl } from "@swim-io/solana-contracts";
 
@@ -192,9 +194,8 @@ export async function relaySolana(
     env.swimSolanaContractAddress
   );
 
-  logger.debug("calling getPropellerFeeTrackerAddr");
   // initialize fee tracker if needed
-  /*
+  logger.debug("calling getPropellerFeeTrackerAddr");
   const feeTrackerPda = await getPropellerFeeTrackerAddr(
     swimUsdMint,
     keypair.publicKey,
@@ -225,7 +226,6 @@ export async function relaySolana(
       keypair,
     ]);
   }
-  */
 
   logger.debug("getWormholeAddressesForMint");
   const wormholeAddresses = await getWormholeAddressesForMint(
