@@ -201,18 +201,12 @@ export async function relaySolana(
     keypair.publicKey,
     solanaRoutingContract.programId
   );
-  logger.debug("done, feeTrackerPda is ", feeTrackerPda);
-  logger.debug(feeTrackerPda);
-
-  logger.debug("calling fetchNullable");
-  // error here:  Invalid coption undefined
   const feeTrackerAtaData = solanaRoutingContract.account.feeTracker.fetchNullable(
     feeTrackerPda
   );
 
-  logger.debug("checking feeTrackerAtaData");
-  logger.debug(!feeTrackerAtaData);
   if(!feeTrackerAtaData) {
+    logger.debug("feeTracker doesnt exist, initializing feeTracker");
     const initFeeTrackers = solanaRoutingContract.methods
     .initializeFeeTracker()
     .accounts({
