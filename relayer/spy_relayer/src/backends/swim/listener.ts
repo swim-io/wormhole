@@ -29,6 +29,7 @@ import {
   storeKeyToJson,
   StorePayload,
   storePayloadToJson,
+  getCurrentRate
 } from "../../helpers/redisHelper";
 import { parseSwimPayload, parseTransferWithArbPayload } from "../../utils/swim";
 
@@ -115,6 +116,24 @@ export class SwimListener implements Listener {
     return payload.extraPayload.propellerEnabled;
   }
 
+  /**
+   * Rate limit filter for xHack workshop, returns true if numRequests has exceed request limit
+   * @param payload
+   * @returns
+   */
+  async verifyIsRateLimited(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): Promise<boolean> {
+    let env = getListenerEnvironment();
+    if (env.requestLimit < 0) {
+      return false;
+    }
+
+    const baseKey = payload.extraPayload.targetChainRecipient;
+    const currentNumRequests = await getCurrentRate(baseKey);
+    this.logger.debug("currentNumRequests: " + currentNumRequests);
+
+    return currentNumRequests >= 0 ? currentNumRequests < env.requestLimit : false;
+  }
+
   /** Parses a raw VAA byte array
    *
    * @throws when unable to parse the VAA
@@ -188,9 +207,10 @@ export class SwimListener implements Listener {
     if (
       !this.verifyIsApprovedToken(parsedPayload) ||
       !this.verifyToSwimContracts(parsedPayload) ||
-      !this.verifyIsPropellerEnabled
+      !this.verifyIsPropellerEnabled(parsedPayload) ||
+      !(await this.verifyIsRateLimited(parsedPayload))
     ) {
-      return "Validation failed for vaa sequence " + parsedVaa.sequence;
+      return "Validation failed for VAA sequence " + parsedVaa.sequence + " from chainId " + parsedVaa.emitterChain;
     }
 
     // Great success!
