@@ -134,6 +134,18 @@ export class SwimListener implements Listener {
     return currentNumRequests >= 0 ? currentNumRequests < env.requestLimit : false;
   }
 
+  /**
+   * Sanity check the maxSwimUSDFee field.
+   * To prevent exploits, we automatically reject any payload with a maxSwimUSDFee that is less than 0.01 swimUSD (10000)
+   */
+  verifyMaxSwimUSDFeeIsValid(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
+    if (payload.extraPayload.maxSwimUSDFee && payload.extraPayload.maxSwimUSDFee < 10000n) {
+      return false;
+    }
+
+    return true;
+  }
+
   /** Parses a raw VAA byte array
    *
    * @throws when unable to parse the VAA
@@ -208,6 +220,7 @@ export class SwimListener implements Listener {
       !this.verifyIsApprovedToken(parsedPayload) ||
       !this.verifyToSwimContracts(parsedPayload) ||
       !this.verifyIsPropellerEnabled(parsedPayload) ||
+      !this.verifyMaxSwimUSDFeeIsValid(parsedPayload) ||
       !(await this.verifyIsRateLimited(parsedPayload))
     ) {
       return "Validation failed for VAA sequence " + parsedVaa.sequence + " from chainId " + parsedVaa.emitterChain;
