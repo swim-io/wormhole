@@ -43,7 +43,7 @@ describe("validate", () => {
   test("successful swim payload", async () => {
     const swimListener = new SwimListener();
     const originAddress = TEST_APPROVED_ETH_TOKEN.toLowerCase();
-    const targetChainRecipientStr = SOLANA_TOKEN_BRIDGE_ADDRESS;
+    const targetChainRecipientStr = "9z6G41AyXk73r1E4nTv81drQPtEqupCSAnsLdGV5WGfK"; // should match SWIM_SOLANA_ROUTING_ADDRESS
     const memoId = Buffer.alloc(16);
     memoId.writeUInt8(2, 0);
 
@@ -52,7 +52,7 @@ describe("validate", () => {
       targetChainRecipient: convertAddressToUint8Array(targetChainRecipientStr, CHAIN_ID_SOLANA),
       propellerEnabled: true,
       gasKickstartEnabled: true,
-      maxSwimUSDFee: 1000n,
+      maxSwimUSDFee: 10001n,
       swimTokenNumber: 1,
       memoId: memoId
     };
@@ -100,6 +100,7 @@ describe("validate", () => {
 
     const rawVaa = Uint8Array.from(encodedVaa);
     let result = await swimListener.validate(rawVaa);
+    console.log(result);
     expect(typeof result).toBe("object");
     result = result as ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>;
 
@@ -188,7 +189,7 @@ describe("validate", () => {
 
     const rawVaa = Uint8Array.from(encodedVaa);
 
-    expect(await swimListener.validate(rawVaa)).toEqual("Validation failed");
+    expect(await swimListener.validate(rawVaa)).toContain("Validation failed");
   });
 });
 

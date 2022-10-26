@@ -139,11 +139,7 @@ export class SwimListener implements Listener {
    * To prevent exploits, we automatically reject any payload with a maxSwimUSDFee that is less than 0.01 swimUSD (10000)
    */
   verifyMaxSwimUSDFeeIsValid(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
-    if (payload.extraPayload.maxSwimUSDFee && payload.extraPayload.maxSwimUSDFee < 10000n) {
-      return false;
-    }
-
-    return true;
+    return payload.extraPayload.maxSwimUSDFee > 10000n;
   }
 
   /** Parses a raw VAA byte array
