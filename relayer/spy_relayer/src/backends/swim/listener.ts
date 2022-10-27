@@ -124,7 +124,7 @@ export class SwimListener implements Listener {
   async verifyIsRateLimited(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): Promise<boolean> {
     let env = getListenerEnvironment();
     if (env.requestLimit < 0) {
-      return false;
+      return true;
     }
 
     const baseKey = payload.extraPayload.targetChainRecipient;
@@ -137,8 +137,19 @@ export class SwimListener implements Listener {
   /**
    * Sanity check the maxSwimUSDFee field.
    * To prevent exploits, we automatically reject any payload with a maxSwimUSDFee that is less than 0.01 swimUSD (10000)
+   *
+   * TODO: add more fee checks
+   * The engine ensures `maxPropellerFee` is fair if it can cover the following expenses:
+      1. Service fee
+      2. Gas kickstart fee (needs to be converted from native gas to swimUSD)
+      3. Gas remuneration (needs to be converted from native gas to swimUSD)
+   *
    */
   verifyMaxSwimUSDFeeIsValid(payload: ParsedTransferWithArbDataPayload<ParsedSwimData>): boolean {
+    const minimumSwimUSDFee = 10000n;
+    if (payload.extraPayload.maxSwimUSDFee <= minimumSwimUSDFee) {
+      this.logger.debug(`Payload rejected, maxSwimUSDFee ${payload.extraPayload.maxSwimUSDFee} is less than ${minimumSwimUSDFee}`);
+    }
     return payload.extraPayload.maxSwimUSDFee > 10000n;
   }
 
@@ -210,7 +221,6 @@ export class SwimListener implements Listener {
       return "Payload parsing failure";
     }
 
-    // TODO add fee check
     // Verify we want to relay this request
     if (
       !this.verifyIsApprovedToken(parsedPayload) ||

@@ -78,6 +78,7 @@ export async function relayEVM(
     logger.info("Will redeem using pubkey: %s", await signer.getAddress());
   }
   logger.debug("Redeeming.");
+  // TODO add engine maxPriorityFee and gasPrice according to maxPropellerFee
   let overrides = {};
   if (chainConfigInfo.chainId === CHAIN_ID_POLYGON) {
     // look, there's something janky with Polygon + ethers + EIP-1559

@@ -100,7 +100,6 @@ describe("validate", () => {
 
     const rawVaa = Uint8Array.from(encodedVaa);
     let result = await swimListener.validate(rawVaa);
-    console.log(result);
     expect(typeof result).toBe("object");
     result = result as ParsedVaa<ParsedTransferWithArbDataPayload<ParsedSwimData>>;
 
