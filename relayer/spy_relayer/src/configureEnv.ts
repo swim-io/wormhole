@@ -227,7 +227,7 @@ const createListenerEnvironment: () => ListenerEnvironment = () => {
 
   logger.info("Getting XHACK_NUM_REQUEST_LIMIT...");
   if(!process.env.XHACK_NUM_REQUEST_LIMIT) {
-    logger.warning("No rate limit set");
+    logger.warn("No rate limit set");
   } else {
     requestLimit = parseInt(process.env.XHACK_NUM_REQUEST_LIMIT);
     logger.debug("XHACK_NUM_REQUEST_LIMIT is " + requestLimit + " per 10 minutes");

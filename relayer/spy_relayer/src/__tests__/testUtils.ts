@@ -76,6 +76,12 @@ export function toBigNumberHex(value: BigNumberish, numBytes: number): string {
     .padStart(numBytes * 2, "0");
 }
 
+/**
+ * There are three "formats" of swim payload:
+ * 1. Only swimMessageVersion and targetChainRecipient
+ * 2. Every field except memoId
+ * 3. Every field
+ */
 export function encodeSwimPayload(
   swimMessageVersion: number,
   targetChainRecipient: Buffer,
@@ -85,15 +91,29 @@ export function encodeSwimPayload(
   swimTokenNumber: number | null,
   memoId: Buffer | null
 ) {
-  const encoded = Buffer.alloc(61);
+  // Allocate the correct number of bytes for the encoded payload
+  let encoded = Buffer.alloc(61);
+  if (!propellerEnabled && !gasKickstartEnabled && !maxSwimUSDFee && !swimTokenNumber && !memoId) {
+    encoded = Buffer.alloc(33);
+  } else if (!memoId) {
+    encoded = Buffer.alloc(61-16);
+  }
+
+  // Case 1
   encoded.writeUInt8(swimMessageVersion, 0);
   encoded.write(targetChainRecipient.toString("hex"), 1, "hex");
-  encoded.writeUInt8(propellerEnabled ? 1 : 0, 33);
-  encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
+
+  // Case 2
+  if (propellerEnabled)
+    encoded.writeUInt8(propellerEnabled ? 1 : 0, 33);
+  if (gasKickstartEnabled)
+    encoded.writeUInt8(gasKickstartEnabled ? 1 : 0, 34);
   if (maxSwimUSDFee)
     encoded.writeBigUInt64BE(maxSwimUSDFee, 35);
   if (swimTokenNumber)
     encoded.writeUInt16BE(swimTokenNumber, 43);
+
+  // Case 3
   if (memoId)
     encoded.write(memoId.toString("hex"), 45, "hex");
   return encoded;

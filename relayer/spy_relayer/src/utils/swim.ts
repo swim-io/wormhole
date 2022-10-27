@@ -47,14 +47,14 @@ export const parseSwimPayload = (arr: Buffer) => {
   // TODO expand this for multiple swim payload versions
   const targetChainRecipient = arr.slice(1, 1 + 32).toString("hex");
   if (arr.length == 33)
-    return {swimMessageVersion, targetChainRecipient};
+    return {swimMessageVersion, targetChainRecipient, propellerEnabled: false, gasKickstartEnabled: false, maxSwimUSDFee: 0n, swimTokenNumber: 0, memoId: "00".repeat(16)};
 
   const propellerEnabled = arr.readUInt8(33) == 1 ? true : false;
   const gasKickstartEnabled = arr.readUInt8(34) == 1 ? true : false;
   const maxSwimUSDFee = arr.readBigUInt64BE(35);
   const swimTokenNumber = arr.readUInt16BE(43);
   if (arr.length == 45)
-    return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, maxSwimUSDFee, swimTokenNumber};
+    return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, maxSwimUSDFee, swimTokenNumber, memoId: "00".repeat(16)};
 
   const memoId = arr.slice(45, 45 + 16).toString("hex");
   return {swimMessageVersion, targetChainRecipient, propellerEnabled, gasKickstartEnabled, maxSwimUSDFee, swimTokenNumber, memoId};

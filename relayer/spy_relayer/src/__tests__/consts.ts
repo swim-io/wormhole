@@ -45,6 +45,7 @@ export const SPY_RELAY_URL = "http://localhost:4201";
 // Fake address, matches SWIM_EVM_ROUTING_ADDRESS in .env.sample
 export const TEST_SWIM_EVM_ROUTING_ADDRESS = "0x0290FB167208Af455bB137780163b7B7a9a10C16";
 
+/*
 describe("consts should exist", () => {
   it("has Solana test token", () => {
     expect.assertions(1);
@@ -54,3 +55,4 @@ describe("consts should exist", () => {
     ).resolves.toBeTruthy();
   });
 });
+*/
